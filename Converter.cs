@@ -218,6 +218,8 @@ namespace makesprite {
                     }
                     filename = Path.GetFileNameWithoutExtension(filename) + ".hpal";
 
+                    Program.LogVerbose("Saving palette " + filename);
+
                     // If the path doesn't exist, create it.
                     string? directoryPath = Path.GetDirectoryName(filename);
                     if (directoryPath != null && directoryPath != "" && !Directory.Exists(directoryPath)) {
@@ -700,7 +702,7 @@ namespace makesprite {
                     outSheetFilename = Path.Combine(parentPath.FullName, outSheetFilename);
                 }
 
-                Program.LogVerbose("Writing spritesheet " + outSheetFilename);
+                Program.LogVerbose("Saving spritesheet " + outSheetFilename);
 
                 // If the path doesn't exist, create it.
                 string? directoryPath = Path.GetDirectoryName(outSheetFilename);
