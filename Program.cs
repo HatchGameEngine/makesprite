@@ -295,16 +295,17 @@ Options:
             }
         }
 
-        static bool ParseSingleArgOption(string option, string arg) {
+        static bool ParseSingleArgOption(string option, List<string> args, int index) {
             switch (option) {
                 case "--output":
                 case "-o":
-                    OutputFilename = arg;
+                    OutputFilename = GetNextArg(args, index);
                     return true;
                 case "--sheet-path":
-                    ConverterOptions.SheetPath = arg;
+                    ConverterOptions.SheetPath = GetNextArg(args, index);
                     return true;
                 case "--max-sheet-width": {
+                    string arg = GetNextArg(args, index);
                     int size = ParseNumericOption(option, arg);
                     if (size < 0) {
                         Console.WriteLine("Invalid argument for " + option);
@@ -315,6 +316,7 @@ Options:
                     return true;
                 }
                 case "--max-sheet-height": {
+                    string arg = GetNextArg(args, index);
                     int size = ParseNumericOption(option, arg);
                     if (size < 0) {
                         Console.WriteLine("Invalid argument for " + option);
@@ -324,14 +326,20 @@ Options:
                     ConverterOptions.MaxSheetHeight = size;
                     return true;
                 }
-                case "--offset-x":
+                case "--offset-x": {
+                    string arg = GetNextArg(args, index);
                     ConverterOptions.OffsetX = ParseNumericOption(option, arg);
                     return true;
-                case "--offset-y":
+                }
+                case "--offset-y": {
+                    string arg = GetNextArg(args, index);
                     ConverterOptions.OffsetY = ParseNumericOption(option, arg);
                     return true;
+                }
                 case "--frame-sort": {
                     SpritePacker.SortMode sortMode;
+
+                    string arg = GetNextArg(args, index);
                     switch (arg.ToLower()) {
                     case "none":
                         sortMode = SpritePacker.SortMode.ID;
@@ -364,13 +372,20 @@ Options:
             }
         }
 
+        static string GetNextArg(List<string> args, int index) {
+            if (index >= args.Count) {
+                Console.WriteLine("Missing argument");
+                Environment.Exit(1);
+            }
+
+            return args[index];
+        }
+
         static bool ParseMultiArgOption(string option, List<string> args) {
             switch (option) {
                 case "--input":
                 case "-i":
-                    if (args.Count == 0) {
-                        return false;
-                    }
+                    ValidateMultiArgs(args);
 
                     InputFiles.Clear();
 
@@ -380,8 +395,14 @@ Options:
 
                     return true;
                 default:
-                    Console.WriteLine("Unrecognized option " + option);
                     return false;
+            }
+        }
+
+        static void ValidateMultiArgs(List<string> args) {
+            if (args.Count == 0) {
+                Console.WriteLine("Missing arguments");
+                Environment.Exit(1);
             }
         }
 
@@ -402,16 +423,11 @@ Options:
                     args.RemoveAt(i);
                 }
                 else if (args[i].StartsWith("-") || args[i].StartsWith("--")) {
-                    if (i + 1 == args.Count) {
-                        Console.WriteLine("Missing argument");
-                        return false;
-                    }
-
                     string option = args[i];
 
                     args.RemoveAt(i);
 
-                    if (ParseSingleArgOption(option, args[i])) {
+                    if (ParseSingleArgOption(option, args, i)) {
                         args.RemoveAt(i);
                         continue;
                     }
@@ -428,6 +444,7 @@ Options:
                     }
 
                     if (!ParseMultiArgOption(option, optionArgs)) {
+                        Console.WriteLine("Unrecognized option " + option);
                         return false;
                     }
                 }
