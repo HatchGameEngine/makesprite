@@ -1,6 +1,6 @@
 # makesprite
 
-makesprite is a tool that converts sprites into Hatch's sprite format.
+makesprite is a tool that converts animated sprites into Hatch formats.
 
 ## Supported formats
 
@@ -12,6 +12,8 @@ makesprite is a tool that converts sprites into Hatch's sprite format.
 ### Output formats
 
 - RSDKv5 animation format
+- PNG image
+- Hatch palette (.hpal)
 
 ## Usage
 
@@ -42,6 +44,9 @@ makesprite -i font.ase --sheet-path "fonts/" -f
   - height: Sort by the height of the frame.
   - maxside: Sort by largest side of the frame.
   - areaheight: Sort by area, then by height.
+- --export-palette: Export .hpal palettes.
+- --no-sheets: Don't export spritesheets.
+- --no-sprites: Don't export sprites.
 - -f, --font: Output a font sprite.
 - -h, --help: Show the usage text and exit.
 - --verbose: Verbose output.

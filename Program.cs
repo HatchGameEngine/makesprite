@@ -251,6 +251,9 @@ Options:
                                - height: Sort by the height of the frame.
                                - maxside: Sort by largest side of the frame.
                                - areaheight: Sort by area, then by height.
+  --export-palette           Export .hpal palettes.
+  --no-sheets                Don't export spritesheets.
+  --no-sprites               Don't export sprites.
   -f, --font                 Output a font sprite.
   -h, --help                 Show this message and exit.
 """);
@@ -270,6 +273,15 @@ Options:
                     return true;
                 case "--combine-sheets":
                     CombineSheets = true;
+                    return true;
+                case "--export-palette":
+                    ConverterOptions.SavePalettes = true;
+                    return true;
+                case "--no-sheets":
+                    ConverterOptions.SaveSheets = false;
+                    return true;
+                case "--no-sprites":
+                    ConverterOptions.SaveSprites = false;
                     return true;
                 case "--font":
                 case "-f":

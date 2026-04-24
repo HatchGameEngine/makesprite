@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 
+using Hatch;
 using RSDKv5;
 
 namespace makesprite {
@@ -81,6 +82,9 @@ namespace makesprite {
         }
 
         public class Options {
+            public bool SaveSprites = true;
+            public bool SaveSheets = true;
+            public bool SavePalettes = false;
             public int MaxSheetWidth = SpritePacker.MAX_SHEET_WIDTH;
             public int MaxSheetHeight = SpritePacker.MAX_SHEET_HEIGHT;
             public SpritePacker.SortMode SortBy = SpritePacker.SortMode.AreaAndHeight;
@@ -189,48 +193,60 @@ namespace makesprite {
 
             // Create spritesheets from packages
             List<SpritesheetImage> spritesheets = CreateSpritesheets(conversionInfos, packages);
+            List<string> spritesheetNames = new List<string>();
 
-            // Save spritesheets
-            string fileExtension = ".png";
-            List<string> spritesheetNames = GetSpritesheetNames(outputFilename, spritesheets.Count, fileExtension);
-            if (!SaveSpritesheets(spritesheets, spritesheetNames, parentPath)) {
-                Console.WriteLine("Could not save spritesheets");
-                return false;
+            if (spritesheets.Count > 0) {
+                GetSpritesheetNames(outputFilename, spritesheets.Count, ".png", spritesheetNames);
+
+                // Save spritesheets
+                if (CurrentOptions.SaveSheets) {
+                    if (!SaveSpritesheets(spritesheets, spritesheetNames, parentPath)) {
+                        Console.WriteLine("Could not save spritesheets");
+                        return false;
+                    }
+                }
+
+                // Save palettes
+                Color[]? palette = spritesheets[0].Palette;
+                if (CurrentOptions.SavePalettes && palette != null) {
+                    string filename;
+                    if (!singleAnim) {
+                        filename = Path.Combine(OutFilenamePath, conversionInfos[0].Filename);
+                    }
+                    else {
+                        filename = OutFilenamePath;
+                    }
+                    filename = Path.GetFileNameWithoutExtension(filename) + ".hpal";
+
+                    // If the path doesn't exist, create it.
+                    string? directoryPath = Path.GetDirectoryName(filename);
+                    if (directoryPath != null && directoryPath != "" && !Directory.Exists(directoryPath)) {
+                        Directory.CreateDirectory(directoryPath);
+                    }
+
+                    // Save palette file
+                    using (FileStream fs = new FileStream(filename, FileMode.Create)) {
+                        using (BinaryWriter writer = new BinaryWriter(fs)) {
+                            Hatch.Palette.Write(palette, writer);
+                        }
+                    }
+                }
             }
 
             // Create animation files
-            for (int a = 0; a < conversionInfos.Count; a++) {
-                ConversionInfo info = conversionInfos[a];
+            if (CurrentOptions.SaveSprites) {
+                for (int a = 0; a < conversionInfos.Count; a++) {
+                    ConversionInfo info = conversionInfos[a];
 
-                string filename;
-                if (!singleAnim) {
-                    filename = Path.Combine(OutFilenamePath, Path.GetFileName(info.Filename));
-                }
-                else {
-                    filename = OutFilenamePath;
-                }
-
-                RSDKv5.Sprite outSprite = new RSDKv5.Sprite();
-                GenerateAnimation(outSprite, info, spritesheetNames, outputFilename);
-
-                if (outSprite.Animations.Count == 0) {
-                    Console.WriteLine("No animations for sprite " + filename);
-                    continue;
-                }
-
-                Program.LogVerbose("Saving sprite " + filename);
-
-                // If the path doesn't exist, create it.
-                string? directoryPath = Path.GetDirectoryName(filename);
-                if (directoryPath != null && directoryPath != "" && !Directory.Exists(directoryPath)) {
-                    Directory.CreateDirectory(directoryPath);
-                }
-
-                // Save animation file
-                using (FileStream fs = new FileStream(filename, FileMode.Create)) {
-                    using (BinaryWriter writer = new BinaryWriter(fs)) {
-                        outSprite.Write(writer);
+                    string filename;
+                    if (!singleAnim) {
+                        filename = Path.Combine(OutFilenamePath, Path.GetFileName(info.Filename));
                     }
+                    else {
+                        filename = OutFilenamePath;
+                    }
+
+                    SaveAnimation(info, spritesheetNames, outputFilename);
                 }
             }
 
@@ -601,6 +617,10 @@ namespace makesprite {
                 spritesheets.Add(sheet);
             }
 
+            if (spritesheets.Count == 0) {
+                return spritesheets;
+            }
+
             // Add unique frames to spritesheets
             Dictionary<int, int> addedBoxID = new Dictionary<int, int>();
             for (int a = 0; a < conversionInfos.Count; a++) {
@@ -656,10 +676,9 @@ namespace makesprite {
             return spritesheets;
         }
 
-        private List<string> GetSpritesheetNames(string outputFilename, int numSpritesheets, string fileExtension) {
+        private void GetSpritesheetNames(string outputFilename, int numSpritesheets, string fileExtension, List<string> names) {
             string outFilename = Path.GetFileNameWithoutExtension(outputFilename);
 
-            List<string> spritesheetNames = new List<string>();
             for (int i = 0; i < numSpritesheets; i++) {
                 string suffix;
                 if (numSpritesheets != 1) {
@@ -670,10 +689,8 @@ namespace makesprite {
                 }
 
                 string sheetFilename = outFilename.Replace('\\', '/') + suffix;
-                spritesheetNames.Add(sheetFilename);
+                names.Add(sheetFilename);
             }
-
-            return spritesheetNames;
         }
 
         private bool SaveSpritesheets(List<SpritesheetImage> spritesheets, List<string> spritesheetNames, System.IO.DirectoryInfo? parentPath) {
@@ -703,10 +720,44 @@ namespace makesprite {
             return true;
         }
 
+        private void SaveAnimation(ConversionInfo info, List<string> spritesheetNames, string filename) {
+            Sprite sprite = info.Input;
+            if (sprite.Frames.Count == 0) {
+                Console.WriteLine("No frames for sprite " + filename);
+                return;
+            }
+
+            // No ranges? Create one.
+            if (sprite.AnimRanges.Count == 0) {
+                Program.LogVerbose("Sprite " + filename + " has no ranges. Creating one.");
+
+                Sprite.AnimRange range = new Sprite.AnimRange("Animation", 0, sprite.Frames.Count - 1, 0);
+                sprite.AnimRanges.Add(range);
+            }
+
+            RSDKv5.Sprite outSprite = new RSDKv5.Sprite();
+
+            GenerateAnimation(outSprite, info, spritesheetNames);
+
+            Program.LogVerbose("Saving sprite " + filename);
+
+            // If the path doesn't exist, create it.
+            string? directoryPath = Path.GetDirectoryName(filename);
+            if (directoryPath != null && directoryPath != "" && !Directory.Exists(directoryPath)) {
+                Directory.CreateDirectory(directoryPath);
+            }
+
+            // Save animation file
+            using (FileStream fs = new FileStream(filename, FileMode.Create)) {
+                using (BinaryWriter writer = new BinaryWriter(fs)) {
+                    outSprite.Write(writer);
+                }
+            }
+        }
+
         private void GenerateAnimation(RSDKv5.Sprite outSprite,
             ConversionInfo convert,
-            List<string> spritesheetNames,
-            string outputFilename) {
+            List<string> spritesheetNames) {
             Sprite sprite = convert.Input;
             if (sprite.Frames.Count == 0) {
                 return;
@@ -731,14 +782,6 @@ namespace makesprite {
             }
 
             int tallestFrame = -65535;
-
-            // No ranges? Create one.
-            if (sprite.AnimRanges.Count == 0) {
-                Program.LogVerbose("Sprite " + outputFilename + " has no ranges. Creating one.");
-
-                Sprite.AnimRange range = new Sprite.AnimRange("Animation", 0, sprite.Frames.Count - 1, 0);
-                sprite.AnimRanges.Add(range);
-            }
 
             // Add animation entries
             for (int i = 0; i < sprite.AnimRanges.Count; i++) {
