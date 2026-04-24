@@ -1,8 +1,6 @@
 using System;
 using System.IO;
 
-using Aseprite;
-
 namespace makesprite {
     class Program {
         static List<string> InputFiles = new List<string>();
@@ -93,14 +91,20 @@ namespace makesprite {
                 LogVerbose("Reading file " + filename);
 
                 try {
-                    using (FileStream stream = new FileStream(filename, FileMode.Open)) {
-                        if (ASE.IsFile(stream)) {
-                            stream.Seek(0, SeekOrigin.Begin);
-                            sprite = new ASE(stream);
+                    string format = "unknown";
 
-                            LogVerbose("  Format: Aseprite");
+                    using (FileStream stream = new FileStream(filename, FileMode.Open)) {
+                        if (Aseprite.File.IsValid(stream)) {
+                            format = "Aseprite file";
+
+                            stream.Seek(0, SeekOrigin.Begin);
+
+                            Aseprite.File file = new Aseprite.File();
+                            sprite = file.Read(stream);
                         }
                     }
+
+                    LogVerbose("  Format: " + format);
                 }
                 catch (System.IO.FileNotFoundException) {
                     Console.WriteLine("Could not find file " + filename);
