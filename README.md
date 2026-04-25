@@ -6,6 +6,7 @@ makesprite is a tool that converts animated sprites into Hatch formats.
 
 ### Input formats
 
+- GIF animation
 - Aseprite v1.3 file format (.ase/.aseprite)
   - Not all features are supported. If something in an .ase is not preserved during conversion, assume it's unimplemented.
 
@@ -45,6 +46,7 @@ makesprite -i font.ase --sheet-path "fonts/" -f
   - maxside: Sort by largest side of the frame.
   - areaheight: Sort by area, then by height.
 - --export-palette: Export .hpal palettes.
+- --ignore-palette-mismatch: Keep sprites palettized even if the frames have palettes that don't match. The spritesheets will use the palette of the first frame.
 - --no-sheets: Don't export spritesheets.
 - --no-sprites: Don't export sprites.
 - -f, --font: Output a font sprite.

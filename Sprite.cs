@@ -49,6 +49,13 @@ namespace makesprite {
             public Layer? Parent = null;
             public List<Layer> Children = new List<Layer>();
 
+            public Layer(Sprite owner) {
+                OwningSprite = owner;
+                Name = "Layer";
+                Visible = true;
+                BlendMode = 0;
+            }
+
             public Layer(Sprite owner, string name, bool visible, int blendMode) {
                 OwningSprite = owner;
                 Name = name;

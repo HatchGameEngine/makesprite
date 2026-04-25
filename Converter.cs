@@ -133,6 +133,8 @@ namespace makesprite {
                 conversionInfos.Add(new ConversionInfo(sprite, filenames[i]));
             }
 
+            Program.LogVerbose("Palettized: " + (All8Bpp ? "Yes" : "No"));
+
             bool singleAnim = conversionInfos.Count == 1;
 
             System.IO.DirectoryInfo? parentPath = Directory.GetParent(outputFilename);
@@ -207,30 +209,22 @@ namespace makesprite {
                 }
 
                 // Save palettes
-                Color[]? palette = spritesheets[0].Palette;
-                if (CurrentOptions.SavePalettes && palette != null) {
-                    string filename;
-                    if (!singleAnim) {
-                        filename = Path.Combine(OutFilenamePath, conversionInfos[0].Filename);
+                if (CurrentOptions.SavePalettes) {
+                    Color[]? palette = spritesheets[0].Palette;
+                    if (palette != null) {
+                        string filename;
+                        if (!singleAnim) {
+                            filename = Path.Combine(OutFilenamePath, conversionInfos[0].Filename);
+                        }
+                        else {
+                            filename = OutFilenamePath;
+                        }
+                        filename = Path.GetFileNameWithoutExtension(filename) + ".hpal";
+
+                        SavePalette(palette, filename);
                     }
                     else {
-                        filename = OutFilenamePath;
-                    }
-                    filename = Path.GetFileNameWithoutExtension(filename) + ".hpal";
-
-                    Program.LogVerbose("Saving palette " + filename);
-
-                    // If the path doesn't exist, create it.
-                    string? directoryPath = Path.GetDirectoryName(filename);
-                    if (directoryPath != null && directoryPath != "" && !Directory.Exists(directoryPath)) {
-                        Directory.CreateDirectory(directoryPath);
-                    }
-
-                    // Save palette file
-                    using (FileStream fs = new FileStream(filename, FileMode.Create)) {
-                        using (BinaryWriter writer = new BinaryWriter(fs)) {
-                            Hatch.Palette.Write(palette, writer);
-                        }
+                        Program.LogVerbose("No palette in spritesheet. Did not export palette.");
                     }
                 }
             }
@@ -720,6 +714,23 @@ namespace makesprite {
             }
 
             return true;
+        }
+
+        private void SavePalette(Color[] palette, string filename) {
+            Program.LogVerbose("Saving palette " + filename);
+
+            // If the path doesn't exist, create it.
+            string? directoryPath = Path.GetDirectoryName(filename);
+            if (directoryPath != null && directoryPath != "" && !Directory.Exists(directoryPath)) {
+                Directory.CreateDirectory(directoryPath);
+            }
+
+            // Save palette file
+            using (FileStream fs = new FileStream(filename, FileMode.Create)) {
+                using (BinaryWriter writer = new BinaryWriter(fs)) {
+                    Hatch.Palette.Write(palette, writer);
+                }
+            }
         }
 
         private void SaveAnimation(ConversionInfo info, List<string> spritesheetNames, string filename) {

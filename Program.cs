@@ -11,6 +11,7 @@ namespace makesprite {
 
         static bool SplitGroups = false;
         static bool CombineSheets = false;
+        static bool IgnorePaletteMismatch = false;
 
         private class SpriteGroup {
             public List<Sprite> Sprites = new List<Sprite>();
@@ -46,35 +47,14 @@ namespace makesprite {
             }
 
             if (SplitGroups) {
-                Dictionary<string, SpriteGroup> groups = SplitSpritesByGroups(sprites, InputFiles);
-
-                sprites.Clear();
-                InputFiles.Clear();
-
-                foreach (var item in groups) {
-                    SpriteGroup group = item.Value;
-                    if (CombineSheets) {
-                        foreach (var groupSprite in group.Sprites) {
-                            sprites.Add(groupSprite);
-                        }
-                        foreach (var groupName in group.Filenames) {
-                            InputFiles.Add(groupName);
-                        }
-                    }
-                    else {
-                        if (!converter.Convert(group.Sprites, group.Filenames, item.Key)) {
-                            return 1;
-                        }
-                    }
-                }
-
-                if (!CombineSheets) {
-                    return 0;
+                if (!ConvertGroupedSprites(converter, sprites, InputFiles, outFilename)) {
+                    return 1;
                 }
             }
-
-            if (!converter.Convert(sprites, InputFiles, outFilename)) {
-                return 1;
+            else {
+                if (!converter.Convert(sprites, InputFiles, outFilename)) {
+                    return 1;
+                }
             }
 
             return 0;
@@ -102,9 +82,20 @@ namespace makesprite {
                             Aseprite.File file = new Aseprite.File();
                             sprite = file.Read(stream);
                         }
+
+                        stream.Seek(0, SeekOrigin.Begin);
+
+                        if (GIF.File.IsValid(stream)) {
+                            format = "GIF";
+
+                            stream.Seek(0, SeekOrigin.Begin);
+
+                            GIF.File file = new GIF.File(stream);
+                            sprite = new GIF.Sprite(file, IgnorePaletteMismatch);
+                        }
                     }
 
-                    LogVerbose("  Format: " + format);
+                    LogVerbose("Format: " + format);
                 }
                 catch (System.IO.FileNotFoundException) {
                     Console.WriteLine("Could not find file " + filename);
@@ -208,6 +199,39 @@ namespace makesprite {
             return groups;
         }
 
+        private static bool ConvertGroupedSprites(Converter converter, List<Sprite> sprites, List<string> filenames, string outFilename) {
+            Dictionary<string, SpriteGroup> groups = SplitSpritesByGroups(sprites, filenames);
+
+            if (!CombineSheets) {
+                foreach (var item in groups) {
+                    SpriteGroup group = item.Value;
+                    if (!converter.Convert(group.Sprites, group.Filenames, item.Key)) {
+                        return false;
+                    }
+                }
+            }
+            else {
+                sprites.Clear();
+                filenames.Clear();
+
+                foreach (var item in groups) {
+                    SpriteGroup group = item.Value;
+                    foreach (var groupSprite in group.Sprites) {
+                        sprites.Add(groupSprite);
+                    }
+                    foreach (var groupName in group.Filenames) {
+                        filenames.Add(groupName);
+                    }
+                }
+
+                if (!converter.Convert(sprites, filenames, outFilename)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         static void PrintUsage() {
             Console.WriteLine("""
 usage: makesprite -i | --input <file>... [-o | --output <path>]
@@ -256,6 +280,9 @@ Options:
                                - maxside: Sort by largest side of the frame.
                                - areaheight: Sort by area, then by height.
   --export-palette           Export .hpal palettes.
+  --ignore-palette-mismatch  Keep sprites palettized even if the frames have
+                             palettes that don't match. The spritesheets
+                             will use the palette of the first frame.
   --no-sheets                Don't export spritesheets.
   --no-sprites               Don't export sprites.
   -f, --font                 Output a font sprite.
@@ -280,6 +307,9 @@ Options:
                     return true;
                 case "--export-palette":
                     ConverterOptions.SavePalettes = true;
+                    return true;
+                case "--ignore-palette-mismatch":
+                    IgnorePaletteMismatch = true;
                     return true;
                 case "--no-sheets":
                     ConverterOptions.SaveSheets = false;
