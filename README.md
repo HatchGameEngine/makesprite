@@ -54,6 +54,7 @@ makesprite -i font.ase --sheet-path "fonts/" -f
   The default is 'areaheight'.
 - --export-palette: Export .hpal palettes.
 - --ignore-palette-mismatch: Keep sprites palettized even if the frames have palettes that don't match. The spritesheets will use the palette of the first frame.
+- --depalettize: Save spritesheets as RGBA.
 - --no-sheets: Don't export spritesheets.
 - --no-sprites: Don't export sprites.
 - -f, --font: Output a font sprite.

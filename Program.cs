@@ -12,6 +12,7 @@ namespace makesprite {
         public static Converter.Options ConverterOptions = new Converter.Options();
 
         static bool GroupSplitSheets = false;
+        static bool Depalettize = false;
         static bool IgnorePaletteMismatch = false;
 
         private class SpriteGroup {
@@ -77,6 +78,12 @@ namespace makesprite {
                 catch (System.IO.FileNotFoundException) {
                     Console.WriteLine("Could not find file " + filename);
                     Environment.Exit(1);
+                }
+
+                if (Depalettize) {
+                    LogVerbose("Depalettizing " + filename);
+
+                    sprite.MakeNonPalettized();
                 }
 
                 sprites.Add(sprite);
@@ -295,6 +302,7 @@ Options:
   --ignore-palette-mismatch  Keep sprites palettized even if the frames have
                              palettes that don't match. The spritesheets
                              will use the palette of the first frame.
+  --depalettize              Save spritesheets as RGBA.
   --no-sheets                Don't export spritesheets.
   --no-sprites               Don't export sprites.
   -f, --font                 Output a font sprite.
@@ -324,6 +332,9 @@ Options:
                     return true;
                 case "--ignore-palette-mismatch":
                     IgnorePaletteMismatch = true;
+                    return true;
+                case "--depalettize":
+                    Depalettize = true;
                     return true;
                 case "--no-sheets":
                     ConverterOptions.SaveSheets = false;

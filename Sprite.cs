@@ -24,6 +24,24 @@ namespace makesprite {
             return copy;
         }
 
+        public void MakeNonPalettized() {
+            if (ColorDepth != 8 || Palette == null) {
+                return;
+            }
+
+            ColorDepth = 32;
+
+            for (var f = 0; f < Frames.Count; f++) {
+                Frame fr = Frames[f];
+
+                for (var l = 0; l < Layers.Count; l++) {
+                    for (int p = 0; p < Width * Height; p++) {
+                        fr.PixelData[l][p] = Palette[fr.PixelData[l][p]];
+                    }
+                }
+            }
+        }
+
         public class AnimRange {
             public string Name;
             public int Start;

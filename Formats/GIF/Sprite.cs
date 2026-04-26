@@ -83,27 +83,35 @@ namespace GIF {
             if (makeNonPalettized) {
                 makesprite.Program.Warning("GIF had unique palettes per frame. Making the sprite non-palettized.");
 
-                ColorDepth = 32;
+                MakeNonPalettized(file, paletteToUse);
+            }
+        }
 
-                for (var f = 0; f < Frames.Count; f++) {
-                    Frame fr = Frames[f];
-                    GIF.Frame gifFrame = file.Frames[f];
-                    Color[] framePalette = paletteToUse;
+        public void MakeNonPalettized(File file, Color[] paletteToUse) {
+            if (ColorDepth == 32) {
+                return;
+            }
 
-                    if (gifFrame.Palette != null) {
-                        framePalette = gifFrame.Palette;
-                    }
+            ColorDepth = 32;
 
-                    for (int p = 0; p < Width * Height; p++) {
-                        uint colorIndex = fr.PixelData[0][p];
+            for (var f = 0; f < Frames.Count; f++) {
+                Frame fr = Frames[f];
+                GIF.Frame gifFrame = file.Frames[f];
+                Color[] framePalette = paletteToUse;
 
-                        byte r = framePalette[colorIndex].R;
-                        byte g = framePalette[colorIndex].G;
-                        byte b = framePalette[colorIndex].B;
-                        byte a = framePalette[colorIndex].A;
+                if (gifFrame.Palette != null) {
+                    framePalette = gifFrame.Palette;
+                }
 
-                        fr.PixelData[0][p] = (uint)(a << 24 | b << 16 | g << 8 | r);
-                    }
+                for (int p = 0; p < Width * Height; p++) {
+                    uint colorIndex = fr.PixelData[0][p];
+
+                    byte r = framePalette[colorIndex].R;
+                    byte g = framePalette[colorIndex].G;
+                    byte b = framePalette[colorIndex].B;
+                    byte a = framePalette[colorIndex].A;
+
+                    fr.PixelData[0][p] = (uint)(a << 24 | b << 16 | g << 8 | r);
                 }
             }
         }
