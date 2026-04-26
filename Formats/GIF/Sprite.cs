@@ -3,7 +3,7 @@ using System.Drawing;
 
 namespace GIF {
     public class Sprite : makesprite.Sprite {
-        public Sprite(File file, bool ignorePaletteMismatch = false) {
+        public Sprite(File file, string name, bool ignorePaletteMismatch = false) {
             Width = file.Width;
             Height = file.Height;
             ColorDepth = 8;
@@ -38,7 +38,7 @@ namespace GIF {
             Layer layer = new Layer(this);
             Layers.Add(layer);
 
-            Sprite.AnimRange range = new Sprite.AnimRange("Animation", 0, Frames.Count - 1, 0);
+            Sprite.AnimRange range = new Sprite.AnimRange(name, 0, Frames.Count - 1, 0);
             AnimRanges.Add(range);
 
             if (numPaletteColors == 0) {

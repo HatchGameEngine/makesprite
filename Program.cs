@@ -3,14 +3,15 @@ using System.IO;
 
 namespace makesprite {
     class Program {
+        public const string SPRITE_EXTENSION = ".bin";
+
         static List<string> InputFiles = new List<string>();
 
         static string OutputFilename = "";
 
         public static Converter.Options ConverterOptions = new Converter.Options();
 
-        static bool SplitGroups = false;
-        static bool CombineSheets = false;
+        static bool GroupSplitSheets = false;
         static bool IgnorePaletteMismatch = false;
 
         private class SpriteGroup {
@@ -43,10 +44,10 @@ namespace makesprite {
             string outFilename = OutputFilename;
             if (outFilename == "") {
                 outFilename = Path.GetFileNameWithoutExtension(InputFiles[0]);
-                outFilename += ".bin";
+                outFilename += SPRITE_EXTENSION;
             }
 
-            if (SplitGroups) {
+            if (ConverterOptions.SplitBy == Converter.SplitMode.Groups) {
                 if (!ConvertGroupedSprites(converter, sprites, InputFiles, outFilename)) {
                     return 1;
                 }
@@ -71,39 +72,10 @@ namespace makesprite {
                 LogVerbose("Reading file " + filename);
 
                 try {
-                    string format = "unknown";
-
-                    using (FileStream stream = new FileStream(filename, FileMode.Open)) {
-                        if (Aseprite.File.IsValid(stream)) {
-                            format = "Aseprite file";
-
-                            stream.Seek(0, SeekOrigin.Begin);
-
-                            Aseprite.File file = new Aseprite.File();
-                            sprite = file.Read(stream);
-                        }
-
-                        stream.Seek(0, SeekOrigin.Begin);
-
-                        if (GIF.File.IsValid(stream)) {
-                            format = "GIF";
-
-                            stream.Seek(0, SeekOrigin.Begin);
-
-                            GIF.File file = new GIF.File(stream);
-                            sprite = new GIF.Sprite(file, IgnorePaletteMismatch);
-                        }
-                    }
-
-                    LogVerbose("Format: " + format);
+                    sprite = DetectAndReadSpriteFile(filename);
                 }
                 catch (System.IO.FileNotFoundException) {
                     Console.WriteLine("Could not find file " + filename);
-                    Environment.Exit(1);
-                }
-
-                if (sprite == null) {
-                    Console.WriteLine("Unrecognized file format for " + filename);
                     Environment.Exit(1);
                 }
 
@@ -111,6 +83,43 @@ namespace makesprite {
             }
 
             return sprites;
+        }
+
+        private static Sprite DetectAndReadSpriteFile(string filename) {
+            Sprite? sprite = null;
+
+            string format = "unknown";
+
+            using (FileStream stream = new FileStream(filename, FileMode.Open)) {
+                if (Aseprite.File.IsValid(stream)) {
+                    format = "Aseprite file";
+
+                    stream.Seek(0, SeekOrigin.Begin);
+
+                    Aseprite.File file = new Aseprite.File();
+                    sprite = file.Read(stream);
+                }
+
+                stream.Seek(0, SeekOrigin.Begin);
+
+                if (GIF.File.IsValid(stream)) {
+                    format = "GIF";
+
+                    stream.Seek(0, SeekOrigin.Begin);
+
+                    GIF.File file = new GIF.File(stream);
+                    sprite = new GIF.Sprite(file, Path.GetFileNameWithoutExtension(filename), IgnorePaletteMismatch);
+                }
+            }
+
+            if (sprite == null) {
+                Console.WriteLine("Unrecognized file format for " + filename);
+                Environment.Exit(1);
+            }
+
+            LogVerbose("Format: " + format);
+
+            return sprite;
         }
 
         private static Dictionary<string, SpriteGroup> SplitSpritesByGroups(List<Sprite> sprites, List<string> filenames) {
@@ -124,7 +133,7 @@ namespace makesprite {
                 string outFilename;
                 if (OutputFilename == "") {
                     outFilename = Path.GetFileNameWithoutExtension(filenames[i]);
-                    outFilename += ".bin";
+                    outFilename += SPRITE_EXTENSION;
                 }
                 else {
                     outFilename = OutputFilename;
@@ -202,7 +211,7 @@ namespace makesprite {
         private static bool ConvertGroupedSprites(Converter converter, List<Sprite> sprites, List<string> filenames, string outFilename) {
             Dictionary<string, SpriteGroup> groups = SplitSpritesByGroups(sprites, filenames);
 
-            if (!CombineSheets) {
+            if (GroupSplitSheets) {
                 foreach (var item in groups) {
                     SpriteGroup group = item.Value;
                     if (!converter.Convert(group.Sprites, group.Filenames, item.Key)) {
@@ -242,15 +251,14 @@ usage: makesprite -i | --input <file>... [-o | --output <path>]
 
 Options:
   -i, --input <file>...      A list of files to convert.
-  -o, --output <file>        The name of the output file. If only converting a
-                             single sprite, this option also defines the name
-                             of the output spritesheets. However, if multiple
-                             sprites are being converted, this option only
-                             defines the name of the output spritesheets, and
-                             the output sprites are named after the input file
-                             names. When used with --split-groups, the output
-                             filenames are suffixed with the names of the
-                             groups.
+  -o, --output <file>        The name of the output. This option also defines
+                             the name of the output spritesheets. If splitting
+                             by files, this option only defines the name of the
+                             output spritesheets, and the output sprites are
+                             named after the input file names. If splitting by
+                             groups, the output sprites are named after the
+                             group names, prefixed by the argument passed to
+                             this option.
   --sheet-path               The parent path to use for the spritesheet names.
                              This affects the paths written to the sprite, not
                              where the spritesheet images are exported.
@@ -265,12 +273,13 @@ Options:
   --offset-y <amount>        Offset all frames vertically by the given amount.
                              A positive value offsets the frames downwards, and
                              a negative value offsets the frames upwards.
-  -s, --split-groups         Export a separate sprite for each group. The loop
-                             frame layer, if any, is shared between the split
-                             sprites. The spritesheets are split unless the
-                             --combine-sheets option is passed.
-  --combine-sheets           When used with --split-groups, all frames share
-                             a spritesheet, instead of being split by groups.
+  -s, --split-by             How to split the input files.
+                             Accepted options:
+                               - none: Don't split.
+                               - files: Export one sprite for each file.
+                               - groups: Export one sprite for each group.
+                             The default is 'none'.
+  --group-split-sheets       Split spritesheets by groups.
   --frame-sort <mode>        How to sort the frames in the spritesheet.
                              Accepted options:
                                - none: Don't sort.
@@ -279,6 +288,7 @@ Options:
                                - height: Sort by the height of the frame.
                                - maxside: Sort by largest side of the frame.
                                - areaheight: Sort by area, then by height.
+                             The default is 'areaheight'.
   --export-palette           Export .hpal palettes.
   --ignore-palette-mismatch  Keep sprites palettized even if the frames have
                              palettes that don't match. The spritesheets
@@ -298,12 +308,8 @@ Options:
                 case "--keep-canvas-offsets":
                     ConverterOptions.KeepCanvasOffsets = true;
                     return true;
-                case "--split-groups":
-                case "-s":
-                    SplitGroups = true;
-                    return true;
-                case "--combine-sheets":
-                    CombineSheets = true;
+                case "--group-split-sheets":
+                    GroupSplitSheets = true;
                     return true;
                 case "--export-palette":
                     ConverterOptions.SavePalettes = true;
@@ -368,6 +374,26 @@ Options:
                 case "--offset-y": {
                     string arg = GetNextArg(args, index);
                     ConverterOptions.OffsetY = ParseNumericOption(option, arg);
+                    return true;
+                }
+                case "--split-by":
+                case "-s": {
+                    string arg = GetNextArg(args, index);
+                    switch (arg.ToLower()) {
+                    case "none":
+                        ConverterOptions.SplitBy = Converter.SplitMode.None;
+                        break;
+                    case "files":
+                        ConverterOptions.SplitBy = Converter.SplitMode.Files;
+                        break;
+                    case "groups":
+                        ConverterOptions.SplitBy = Converter.SplitMode.Groups;
+                        break;
+                    default:
+                        Console.WriteLine("Invalid argument for " + option);
+                        Environment.Exit(1);
+                        return false;
+                    }
                     return true;
                 }
                 case "--frame-sort": {
