@@ -33,9 +33,10 @@ makesprite -i font.ase --sheet-path "fonts/" -f
 - --max-sheet-width: The maximum width of a spritesheet.
 - --max-sheet-height: The maximum height of a spritesheet.
 - --keep-canvas-offsets: Preserve the offsets of the original canvas.
-- --no-offsets: Do not define offsets for any frames.
+- --no-offsets: Don't define offsets for any frames.
 - --offset-x: Offset all frames horizontally by the given amount.
 - --offset-y: Offset all frames vertically by the given amount.
+- --no-frame-trim: Don't trim frames.
 - -s, --split-by: How to split the input files. Accepted options:
   - none: Don't split.
   - files: Export one sprite for each file.

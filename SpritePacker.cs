@@ -14,28 +14,12 @@ namespace makesprite {
             AreaAndHeight
         }
 
-        public class Rect {
-            public int X;
-            public int Y;
-            public int Width;
-            public int Height;
-
-            public Rect(int x, int y, int width, int height) {
-                X = x;
-                Y = y;
-                Width = width;
-                Height = height;
-            }
-        }
-
         public class Box {
             public int ID;
             public int PackageID;
-            public int OffX;
-            public int OffY;
-            public Rect Rect;
+            public Rectangle Rect;
 
-            public Box(int id, Rect rect) {
+            public Box(int id, Rectangle rect) {
                 ID = id;
                 Rect = rect;
             }
@@ -148,10 +132,10 @@ namespace makesprite {
             parent.Used = true;
 
             parent.Right = new PackageNode();
-            parent.Right.Box = new Box(-1, new Rect(parent.Box.Rect.X + w, parent.Box.Rect.Y, parent.Box.Rect.Width - w, h));
+            parent.Right.Box = new Box(-1, new Rectangle(parent.Box.Rect.X + w, parent.Box.Rect.Y, parent.Box.Rect.Width - w, h));
 
             parent.Bottom = new PackageNode();
-            parent.Bottom.Box = new Box(-1, new Rect(parent.Box.Rect.X, parent.Box.Rect.Y + h, parent.Box.Rect.Width, parent.Box.Rect.Height - h));
+            parent.Bottom.Box = new Box(-1, new Rectangle(parent.Box.Rect.X, parent.Box.Rect.Y + h, parent.Box.Rect.Width, parent.Box.Rect.Height - h));
 
             return parent.Box;
         }
@@ -207,7 +191,7 @@ namespace makesprite {
             package.Height = DefaultHeight;
 
             PackageNode root = new PackageNode();
-            root.Box = new Box(-1, new Rect(0, 0, package.Width, package.Height));
+            root.Box = new Box(-1, new Rectangle(0, 0, package.Width, package.Height));
 
             packageList.Add(package);
 
@@ -238,7 +222,7 @@ namespace makesprite {
                                 packageList.Add(package);
 
                                 root = new PackageNode();
-                                root.Box = new Box(-1, new Rect(0, 0, package.Width, package.Height));
+                                root.Box = new Box(-1, new Rectangle(0, 0, package.Width, package.Height));
 
                                 contin = false;
                                 startBox = i;
@@ -260,7 +244,7 @@ namespace makesprite {
                             // resize current package
                             contin = true;
                             root = new PackageNode();
-                            root.Box = new Box(-1, new Rect(0, 0, package.Width, package.Height));
+                            root.Box = new Box(-1, new Rectangle(0, 0, package.Width, package.Height));
                             break;
                         }
 

@@ -273,6 +273,7 @@ Options:
   --offset-y <amount>        Offset all frames vertically by the given amount.
                              A positive value offsets the frames downwards, and
                              a negative value offsets the frames upwards.
+  --no-frame-trim            Don't trim frames.
   -s, --split-by             How to split the input files.
                              Accepted options:
                                - none: Don't split.
@@ -307,6 +308,9 @@ Options:
                     return true;
                 case "--keep-canvas-offsets":
                     ConverterOptions.KeepCanvasOffsets = true;
+                    return true;
+                case "--no-frame-trim":
+                    ConverterOptions.TrimFrames = false;
                     return true;
                 case "--group-split-sheets":
                     GroupSplitSheets = true;
