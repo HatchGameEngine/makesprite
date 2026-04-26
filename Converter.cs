@@ -103,6 +103,7 @@ namespace makesprite {
             public int OffsetX = 0;
             public int OffsetY = 0;
             public bool TrimFrames = true;
+            public bool MergeDuplicateFrames = true;
             public bool IsFont = false;
             public bool Verbose = false;
         }
@@ -337,16 +338,7 @@ namespace makesprite {
                 }
 
                 // Hash canvas to check for uniqueness
-                uint frameHash = 0xDEADBEEF;
-                for (int p = 0; p < canvasSize; p++) {
-                    int px = p % sprite.Width;
-                    int py = p / sprite.Width;
-                    // Width and Height in this respect are just X2 and Y2
-                    if (px >= crop.X && py >= crop.Y &&
-                        px <= crop.Width && py <= crop.Height) {
-                        frameHash = JenkinsHash((uint)frameCanvas[p].ToArgb(), frameHash);
-                    }
-                }
+                uint frameHash = GetFrameHash(sprite, frameCanvas, crop, 0xDEADBEEF);
 
                 // Adjust Box from X1Y1X2Y2 to XYWH
                 crop.Width -= crop.X - 1;
@@ -369,7 +361,12 @@ namespace makesprite {
                     convert.frameMap.Add(HashToFrameIndex[frameHash]);
                 }
                 else {
-                    HashToFrameIndex.Add(frameHash, Boxes.Count);
+                    // Never duplicate empty frames
+                    // (The hash stays as 0xDEADBEEF if the canvas was empty.)
+                    if (CurrentOptions.MergeDuplicateFrames || frameHash == 0xDEADBEEF) {
+                        HashToFrameIndex.Add(frameHash, Boxes.Count);
+                    }
+
                     convert.frameMap.Add(Boxes.Count);
 
                     Rectangle rect;
@@ -402,6 +399,26 @@ namespace makesprite {
 
                 convert.frameOffsets.Add(new Vector2(frameOffsetX, frameOffsetY));
             }
+        }
+
+        private uint GetFrameHash(Sprite sprite, System.Drawing.Color[] canvas, Rectangle crop, uint frameHash) {
+            if (crop.Width == 0 || crop.Height == 0) {
+                return frameHash;
+            }
+
+            int canvasSize = sprite.Width * sprite.Height;
+
+            for (int p = 0; p < canvasSize; p++) {
+                int px = p % sprite.Width;
+                int py = p / sprite.Width;
+                // Width and Height in this respect are just X2 and Y2
+                if (px >= crop.X && py >= crop.Y &&
+                    px <= crop.Width && py <= crop.Height) {
+                    frameHash = JenkinsHash((uint)canvas[p].ToArgb(), frameHash);
+                }
+            }
+
+            return frameHash;
         }
 
         private void AddHitbox(Rectangle[] frameHitboxes, int hitboxIndex, int px, int py, int width, int height) {

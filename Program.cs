@@ -274,6 +274,7 @@ Options:
                              A positive value offsets the frames downwards, and
                              a negative value offsets the frames upwards.
   --no-frame-trim            Don't trim frames.
+  --keep-duplicate-frames    Don't merge duplicate frames in the spritesheet.
   -s, --split-by             How to split the input files.
                              Accepted options:
                                - none: Don't split.
@@ -311,6 +312,9 @@ Options:
                     return true;
                 case "--no-frame-trim":
                     ConverterOptions.TrimFrames = false;
+                    return true;
+                case "--keep-duplicate-frames":
+                    ConverterOptions.MergeDuplicateFrames = false;
                     return true;
                 case "--group-split-sheets":
                     GroupSplitSheets = true;
