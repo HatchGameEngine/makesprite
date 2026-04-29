@@ -566,7 +566,7 @@ namespace makesprite {
 
                     for (int p = 0; p < canvasSize; p++) {
                         uint index = frame.PixelData[l][p];
-                        if (index == sprite.TransparentPaletteIndex) {
+                        if (index == (uint)sprite.TransparentPaletteIndex) {
                             continue;
                         }
 
@@ -578,7 +578,7 @@ namespace makesprite {
                 else {
                     for (int p = 0; p < canvasSize; p++) {
                         uint index = frame.PixelData[l][p];
-                        if (index == sprite.TransparentPaletteIndex) {
+                        if (index == (uint)sprite.TransparentPaletteIndex) {
                             continue;
                         }
 

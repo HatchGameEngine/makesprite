@@ -117,6 +117,17 @@ namespace makesprite {
                     GIF.File file = new GIF.File(stream);
                     sprite = new GIF.Sprite(file, Path.GetFileNameWithoutExtension(filename), IgnorePaletteMismatch);
                 }
+
+                stream.Seek(0, SeekOrigin.Begin);
+
+                if (PNG.File.IsValid(stream)) {
+                    format = "PNG";
+
+                    stream.Seek(0, SeekOrigin.Begin);
+
+                    PNG.File file = new PNG.File(stream);
+                    sprite = new PNG.Sprite(file, Path.GetFileNameWithoutExtension(filename));
+                }
             }
 
             if (sprite == null) {

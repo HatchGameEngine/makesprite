@@ -3,10 +3,10 @@ using System.IO.Compression;
 
 namespace makesprite {
     public class Sprite {
-        public ushort Width;
-        public ushort Height;
-        public ushort ColorDepth;
-        public byte TransparentPaletteIndex;
+        public int Width;
+        public int Height;
+        public int ColorDepth;
+        public int TransparentPaletteIndex = -1;
 
         public List<Frame> Frames = new List<Frame>();
         public List<Layer> Layers = new List<Layer>();
@@ -134,13 +134,13 @@ namespace makesprite {
                 uint[] pixelData = PixelData[layerIndex];
 
                 if (OwningSprite.ColorDepth == 8) {
-                    if (OwningSprite.Palette == null) {
+                    if (OwningSprite.Palette == null || OwningSprite.TransparentPaletteIndex == -1) {
                         return true;
                     }
 
                     for (int p = 0; p < canvasSize; p++) {
                         uint index = pixelData[p];
-                        if (index == OwningSprite.TransparentPaletteIndex) {
+                        if (index == (uint)OwningSprite.TransparentPaletteIndex) {
                             continue;
                         }
 
