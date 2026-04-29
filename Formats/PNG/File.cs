@@ -4,61 +4,295 @@ using System.IO;
 
 // Code portions taken from the public domain library BigGustave
 namespace PNG {
+    public enum ColorType {
+        Grayscale = 0,
+        Truecolor = 2,
+        Indexed = 3,
+        GrayscaleAlpha = 4,
+        TruecolorAlpha = 6
+    };
+
+    public enum FilterType {
+        None = 0,
+        Sub = 1,
+        Up = 2,
+        Average = 3,
+        Paeth = 4
+    };
+
+    public enum InterlaceMethod {
+        None = 0,
+        Adam7 = 1
+    };
+
     public class File {
         private static byte[] Header = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
 
-        private enum ColorType {
-            Indexed = 3,
-            RGBA = 6
-        };
+        public int Width;
+        public int Height;
+        public int BitDepth;
+        public ColorType ColorType;
+        public int BytesPerPixel;
+        private int SamplesPerPixel;
+        public byte CompressionMethod;
+        public FilterType FilterType;
+        public InterlaceMethod InterlaceMethod;
+        public byte[] Data;
+        public byte[]? Palette = null;
+        public byte[]? TransparencyData = null;
+        public int TransparentPaletteIndex = -1;
 
-        private int Width;
-        private int Height;
-        private int ColorDepth;
-        private int BytesPerPixel;
-        private byte[] Data;
-        private Color[]? Palette;
-
-        public File(int width, int height, int colorDepth, byte[] data, Color[]? palette) {
+        public File(int width, int height, int bitDepth, byte[] data, Color[]? palette) {
             Width = width;
             Height = height;
-            ColorDepth = colorDepth;
-            BytesPerPixel = colorDepth / 8;
+            BitDepth = bitDepth;
+            BytesPerPixel = bitDepth / 8;
             Data = data;
-            Palette = palette;
+
+            if (palette != null) {
+                SetPalette(palette);
+            }
+        }
+
+        private void SetPalette(Color[] palette) {
+            bool hasTransparency = false;
+
+            Palette = new byte[palette.Length * 3];
+            TransparencyData = null;
+            TransparentPaletteIndex = -1;
+
+            for (int i = 0; i < palette.Length; i++) {
+                Palette[(i * 3) + 0] = palette[i].R;
+                Palette[(i * 3) + 1] = palette[i].G;
+                Palette[(i * 3) + 2] = palette[i].B;
+
+                if (palette[i].A != 0xFF) {
+                    hasTransparency = true;
+                }
+            }
+
+            if (hasTransparency) {
+                TransparencyData = new byte[palette.Length];
+
+                for (int i = 0; i < palette.Length; i++) {
+                    byte alpha = palette[i].A;
+                    if (alpha == 0 && TransparentPaletteIndex == -1) {
+                        TransparentPaletteIndex = i;
+                    }
+
+                    TransparencyData[i] = alpha;
+                }
+            }
+        }
+
+        static public bool ReadAndValidatePNGHeader(BinaryReader reader) {
+            byte[] header = reader.ReadBytes(Header.Length);
+            return header.SequenceEqual(Header);
+        }
+
+        static public bool IsValid(BinaryReader reader) {
+            if (ReadAndValidatePNGHeader(reader)) {
+                return true;
+            }
+
+            return false;
+        }
+
+        static public bool IsValid(Stream stream) {
+            return IsValid(new BinaryReader(stream));
+        }
+
+        public byte GetSamplesPerPixel() {
+            switch (ColorType) {
+            case ColorType.Grayscale:
+                return 1;
+            case ColorType.Indexed:
+                return 1;
+            case ColorType.Truecolor:
+                return 3;
+            case ColorType.GrayscaleAlpha:
+                return 2;
+            case ColorType.TruecolorAlpha:
+                return 4;
+            default:
+                return 0;
+            }
+        }
+
+        public int GetBytesPerScanline() {
+            switch (BitDepth) {
+            case 1:
+                return (Width + 7) / 8;
+            case 2:
+                return (Width + 3) / 4;
+            case 4:
+                return (Width + 1) / 2;
+            case 8:
+            case 16:
+                return Width * SamplesPerPixel * (BitDepth / 8);
+            default:
+                return 0;
+            }
+        }
+
+        public File(BinaryReader reader) {
+            if (!ReadAndValidatePNGHeader(reader)) {
+                throw new Exception("Invalid PNG file");
+            }
+
+            ReadIHDR(reader);
+
+            SamplesPerPixel = GetSamplesPerPixel();
+            BytesPerPixel = SamplesPerPixel * ((BitDepth + 7) / 8);
+
+            MemoryStream pixelDataStream = new MemoryStream();
+            byte[] crc = new byte[4];
+            bool reachedEnd = false;
+
+            while (!reachedEnd) {
+                int headerLength = ReadInt32BE(reader);
+                byte[] nameBytes = reader.ReadBytes(4);
+                string headerName = System.Text.Encoding.ASCII.GetString(nameBytes);
+
+                byte[] data = new byte[headerLength];
+                int read = reader.Read(data, 0, data.Length);
+                if (read != data.Length) {
+                    throw new InvalidOperationException($"Expected to read {headerLength} bytes for {headerName}, got {read} bytes");
+                }
+
+                switch (headerName) {
+                case "PLTE":
+                    if (headerLength % 3 != 0) {
+                        throw new InvalidOperationException($"{headerName} length must be multiple of 3, but was {headerLength} bytes long");
+                    }
+
+                    Palette = new byte[data.Length];
+
+                    int dataIndex = 0;
+                    for (int i = 0; i < data.Length; i += 3) {
+                        Palette[dataIndex++] = data[i + 0];
+                        Palette[dataIndex++] = data[i + 1];
+                        Palette[dataIndex++] = data[i + 2];
+                    }
+                    break;
+                case "IDAT":
+                    pixelDataStream.Write(data, 0, data.Length);
+                    break;
+                case "IEND":
+                    reachedEnd = true;
+                    break;
+                case "tRNS":
+                    TransparencyData = new byte[data.Length];
+
+                    for (int i = 0; i < data.Length; i++) {
+                        byte alpha = data[i];
+                        if (alpha == 0 && TransparentPaletteIndex == -1) {
+                            TransparentPaletteIndex = i;
+                        }
+                        TransparencyData[i] = alpha;
+                    }
+                    break;
+                default:
+                    if (char.IsUpper(headerName[0])) {
+                        throw new NotSupportedException($"Unknown critical header {headerName}");
+                    }
+                    break;
+                }
+
+                read = reader.Read(crc, 0, crc.Length);
+                if (read != 4) {
+                    throw new InvalidOperationException($"Could not read CRC. Read {read} bytes instead");
+                }
+
+                int result = (int)CRC32.Calculate(System.Text.Encoding.ASCII.GetBytes(headerName), data);
+                int crcActual = (crc[0] << 24) + (crc[1] << 16) + (crc[2] << 8) + crc[3];
+                if (result != crcActual) {
+                    throw new InvalidOperationException($"Calculated CRC {result} did not match expected CRC {crcActual} for {headerName}");
+                }
+            }
+
+            pixelDataStream.Flush();
+            pixelDataStream.Seek(2, SeekOrigin.Begin);
+
+            MemoryStream output = new MemoryStream();
+            using (DeflateStream deflateStream = new DeflateStream(pixelDataStream, CompressionMode.Decompress)) {
+                deflateStream.CopyTo(output);
+                deflateStream.Close();
+            }
+
+            Data = PrepareDecodedData(Decoder.Decode(output.ToArray(), this));
+        }
+
+        public File(Stream stream) : this(new BinaryReader(stream)) {}
+
+        private byte[] PrepareDecodedData(byte[] decoded) {
+            int p = 0;
+            int dataIndex = 0;
+
+            byte[] data = new byte[Width * Height * BytesPerPixel];
+
+            for (int y = 0; y < Height; y++) {
+                dataIndex++;
+
+                for (int x = 0; x < Width * BytesPerPixel; x++) {
+                    data[p++] = decoded[dataIndex++];
+                }
+            }
+
+            return data;
+        }
+
+        private void ReadIHDR(BinaryReader reader) {
+            int headerLength = ReadInt32BE(reader);
+            byte[] nameBytes = reader.ReadBytes(4);
+            string headerName = System.Text.Encoding.ASCII.GetString(nameBytes);
+
+            if (headerName != "IHDR") {
+                throw new InvalidOperationException($"Expected IHDR chunk, got {headerName}");
+            }
+
+            if (headerLength != 13) {
+                throw new InvalidOperationException($"Expected IHDR to be 13 bytes long, but was {headerLength} bytes long");
+            }
+
+            byte[] data = new byte[13];
+            int read = reader.Read(data, 0, data.Length);
+            if (read != data.Length) {
+                throw new InvalidOperationException($"Expected to read 13 bytes for IHDR, got {read} bytes");
+            }
+
+            byte[] crc = new byte[4];
+            read = reader.Read(crc, 0, crc.Length);
+            if (read != 4) {
+                throw new InvalidOperationException($"Could not read CRC. Read {read} bytes instead");
+            }
+
+            Width = ReadInt32BE(data, 0);
+            Height = ReadInt32BE(data, 4);
+            BitDepth = data[8];
+            ColorType = (ColorType)data[9];
+            CompressionMethod = data[10];
+            FilterType = (FilterType)data[11];
+            InterlaceMethod = (InterlaceMethod)data[12];
         }
 
         public void Write(Stream outputStream) {
             int dataLength = 0;
             int rowLength = Width * BytesPerPixel;
-            int bitDepth = 8;
-            ColorType colorType = ColorDepth == 8 ? ColorType.Indexed : ColorType.RGBA;
 
             // Each row of a PNG IDAT begins with a "filter type" byte.
-            // That's why the buffer is Height bytes bigger.
-            // We just write 0, which is no filtering.
+            // This is why the buffer is 'Height' bytes bigger.
             byte[]? data = new byte[(Width * Height * BytesPerPixel) + Height];
-            byte[]? paletteColors = null;
-            byte[]? trnsData = null;
 
             int dataIndex = 0;
             int inputIndex = 0;
 
-            if (colorType == ColorType.Indexed && Palette != null) {
-                bitDepth = Palette.Length > 16 ? 8 : 4;
-                paletteColors = new byte[3 * Palette.Length];
-                trnsData = new byte[Palette.Length];
+            ColorType = BitDepth == 8 ? ColorType.Indexed : ColorType.TruecolorAlpha;
 
-                for (int i = 0; i < Palette.Length; i++) {
-                    int palIndex = i * 3;
-                    System.Drawing.Color color = Palette[i];
-                    paletteColors[palIndex + 0] = color.R;
-                    paletteColors[palIndex + 1] = color.G;
-                    paletteColors[palIndex + 2] = color.B;
-                    trnsData[i] = color.A;
-                }
+            if (ColorType == ColorType.Indexed && Palette != null) {
+                BitDepth = Palette.Length > 16 ? 8 : 4;
 
-                int samplesPerByte = bitDepth == 8 ? 1 : 2;
+                int samplesPerByte = BitDepth == 8 ? 1 : 2;
                 bool applyShift = samplesPerByte == 2;
 
                 for (int y = 0; y < Height; y++) {
@@ -104,27 +338,28 @@ namespace PNG {
             // Write IHDR
             stream.WriteChunkLength(13);
             stream.WriteChunkHeader(System.Text.Encoding.ASCII.GetBytes("IHDR"));
-            WriteUInt32BE(stream, Width);
-            WriteUInt32BE(stream, Height);
-            stream.WriteByte((byte)bitDepth);
-            stream.WriteByte((byte)colorType);
+            WriteInt32BE(stream, Width);
+            WriteInt32BE(stream, Height);
+            stream.WriteByte((byte)(BitDepth / BytesPerPixel));
+            stream.WriteByte((byte)ColorType);
             stream.WriteByte((byte)0); // Compression method (always 0)
             stream.WriteByte((byte)0); // Filter method (always 0)
-            stream.WriteByte((byte)0); // Interlace method (0 = none, 1 = Adam7. We write zero)
+            stream.WriteByte((byte)InterlaceMethod.None);
             stream.WriteCRC();
 
-            // Write PLTE and tRNS if indexed
-            if (paletteColors != null) {
-                stream.WriteChunkLength(paletteColors.Length);
+            // Write PLTE
+            if (Palette != null) {
+                stream.WriteChunkLength(Palette.Length);
                 stream.WriteChunkHeader(System.Text.Encoding.ASCII.GetBytes("PLTE"));
-                stream.Write(paletteColors);
+                stream.Write(Palette);
                 stream.WriteCRC();
             }
 
-            if (trnsData != null) {
-                stream.WriteChunkLength(trnsData.Length);
+            // Write tRNS if indexed
+            if (ColorType == ColorType.Indexed && TransparencyData != null) {
+                stream.WriteChunkLength(TransparencyData.Length);
                 stream.WriteChunkHeader(System.Text.Encoding.ASCII.GetBytes("tRNS"));
-                stream.Write(trnsData);
+                stream.Write(TransparencyData);
                 stream.WriteCRC();
             }
 
@@ -190,7 +425,7 @@ namespace PNG {
             }
         }
 
-        internal class PNGWriter : Stream {
+        private class PNGWriter : Stream {
             private readonly Stream inner;
             private readonly List<byte> written = new List<byte>();
 
@@ -219,7 +454,7 @@ namespace PNG {
             }
 
             public void WriteChunkLength(int length) {
-                WriteUInt32BE(inner, length);
+                WriteInt32BE(inner, length);
             }
 
             public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
@@ -235,11 +470,23 @@ namespace PNG {
 
             public void WriteCRC() {
                 int result = (int)CRC32.Calculate(written);
-                WriteUInt32BE(inner, result);
+                WriteInt32BE(inner, result);
             }
         }
 
-        private static void WriteUInt32BE(Stream stream, int value) {
+        private static int ReadInt32BE(BinaryReader reader) {
+            return (reader.ReadByte() << 24) + (reader.ReadByte() << 16) + (reader.ReadByte() << 8) + reader.ReadByte();
+        }
+
+        public static int ReadInt32BE(byte[] bytes, int offset) {
+            return (bytes[0 + offset] << 24) + (bytes[1 + offset] << 16) + (bytes[2 + offset] << 8) + bytes[3 + offset];
+        }
+
+        public static int ReadInt32BE(byte[] bytes) {
+            return ReadInt32BE(bytes, 0);
+        }
+
+        private static void WriteInt32BE(Stream stream, int value) {
             stream.WriteByte((byte)(value >> 24));
             stream.WriteByte((byte)(value >> 16));
             stream.WriteByte((byte)(value >> 8));

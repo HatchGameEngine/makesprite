@@ -43,5 +43,20 @@ namespace PNG {
 
             return crc32 ^ uint.MaxValue;
         }
+
+        public static uint Calculate(byte[] data, byte[] data2) {
+            uint crc32 = uint.MaxValue;
+            for (int i = 0; i < data.Length; i++) {
+                uint index = (crc32 ^ data[i]) & 0xFF;
+                crc32 = (crc32 >> 8) ^ Lookup[index];
+            }
+
+            for (int i = 0; i < data2.Length; i++) {
+                uint index = (crc32 ^ data2[i]) & 0xFF;
+                crc32 = (crc32 >> 8) ^ Lookup[index];
+            }
+
+            return crc32 ^ uint.MaxValue;
+        }
     }
 }

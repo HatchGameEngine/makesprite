@@ -29,7 +29,7 @@ namespace GIF {
             public byte Suffix;
         };
 
-        static public bool ReadHeader(BinaryReader reader) {
+        static public bool ReadAndValidateHeader(BinaryReader reader) {
             byte[] magicGIF = reader.ReadBytes(3);
             string stringMagicGIF = System.Text.Encoding.ASCII.GetString(magicGIF);
             if (stringMagicGIF != "GIF") {
@@ -46,7 +46,7 @@ namespace GIF {
         }
 
         static public bool IsValid(BinaryReader reader) {
-            if (ReadHeader(reader)) {
+            if (ReadAndValidateHeader(reader)) {
                 return true;
             }
 
@@ -58,7 +58,7 @@ namespace GIF {
         }
 
         public File(BinaryReader reader) {
-            if (!ReadHeader(reader)) {
+            if (!ReadAndValidateHeader(reader)) {
                 throw new Exception("Invalid GIF file");
             }
 
