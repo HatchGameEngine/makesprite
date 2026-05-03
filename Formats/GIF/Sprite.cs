@@ -17,7 +17,7 @@ namespace GIF {
                 GIF.Frame gifFrame = file.Frames[f];
 
                 Frame fr = new Frame(this);
-                fr.Duration = gifFrame.Delay;
+                fr.Duration = (gifFrame.Delay * 600 + 999) / 1000; // ceil
 
                 uint[] pixelData = new uint[Width * Height];
                 for (int p = 0; p < Width * Height; p++) {

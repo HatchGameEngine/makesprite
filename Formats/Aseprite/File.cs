@@ -84,7 +84,7 @@ namespace Aseprite {
             ushort magicNumber = reader.ReadUInt16();
 
             ushort oldChunkCount = reader.ReadUInt16();
-            frame.Duration = reader.ReadUInt16();
+            ushort duration = reader.ReadUInt16();
             reader.ReadUInt16();
             uint newChunkCount = reader.ReadUInt32();
 
@@ -92,6 +92,8 @@ namespace Aseprite {
             if (chunkCount == 0) {
                 chunkCount = oldChunkCount;
             }
+
+            frame.Duration = (duration * 60 + 999) / 1000; // ceil
 
             for (int i = 0; i < sprite.Layers.Count; i++) {
                 frame.PixelData.Add(new uint[sprite.Width * sprite.Height]);

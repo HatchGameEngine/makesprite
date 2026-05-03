@@ -350,12 +350,7 @@ namespace makesprite {
                 convert.frameCrops.Add(crop);
                 convert.frameSheets.Add(frameCanvas);
                 convert.frameSizes.Add(new Vector2(sprite.Width, sprite.Height));
-                if (sprite.Frames[f].Duration == 1) {
-                    convert.frameDuration.Add(0);
-                }
-                else {
-                    convert.frameDuration.Add((sprite.Frames[f].Duration * 60 + 999) / 1000); // ceil
-                }
+                convert.frameDuration.Add(sprite.Frames[f].Duration);
 
                 if (HashToFrameIndex.ContainsKey(frameHash)) {
                     convert.frameMap.Add(HashToFrameIndex[frameHash]);
