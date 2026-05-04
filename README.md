@@ -45,6 +45,7 @@ makesprite -i font.ase --sheet-path "fonts/" -f
   - groups: Export one sprite for each group.
   The default is 'none'.
 - --group-split-sheets: Split spritesheets by groups.
+- --sequence: Treat the input files as a sequence of frames, rather than separate animations.
 - --frame-sort: How to sort the frames in the spritesheet. Accepted options:
   - none: Don't sort.
   - area: Sort by the area of the frame.

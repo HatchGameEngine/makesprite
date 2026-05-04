@@ -104,6 +104,7 @@ namespace makesprite {
             public int OffsetY = 0;
             public bool TrimFrames = true;
             public bool MergeDuplicateFrames = true;
+            public bool Sequence = false;
             public bool IsFont = false;
             public bool Verbose = false;
         }
@@ -906,9 +907,16 @@ namespace makesprite {
                     isFont = true;
                 }
 
-                RSDKv5.Sprite.Animation animEntry = new RSDKv5.Sprite.Animation(rangeName);
-                if (isFont) {
-                    animEntry.Speed = 0;
+                RSDKv5.Sprite.Animation animEntry;
+                if (CurrentOptions.Sequence && outSprite.Animations.Count > 0) {
+                    animEntry = outSprite.Animations[0];
+                }
+                else {
+                    animEntry = new RSDKv5.Sprite.Animation(rangeName);
+
+                    if (isFont) {
+                        animEntry.Speed = 0;
+                    }
                 }
 
                 for (int f = range.Start; f <= range.End; f++) {
@@ -969,7 +977,9 @@ namespace makesprite {
                     animEntry.LoopIndex = (byte)tallestFrame;
                 }
 
-                outSprite.Animations.Add(animEntry);
+                if (!CurrentOptions.Sequence || outSprite.Animations.Count == 0) {
+                    outSprite.Animations.Add(animEntry);
+                }
             }
         }
 
