@@ -3,20 +3,17 @@ using System.IO.Compression;
 
 namespace makesprite {
     public class Sprite {
-        public int Width;
-        public int Height;
         public int ColorDepth;
         public int TransparentPaletteIndex = -1;
 
         public List<Frame> Frames = new List<Frame>();
         public List<Layer> Layers = new List<Layer>();
         public List<AnimRange> AnimRanges = new List<AnimRange>();
+        public List<string> HitboxNames = new List<string>();
         public uint[]? Palette = null;
 
         public Sprite Copy() {
             Sprite copy = new Sprite();
-            copy.Width = Width;
-            copy.Height = Height;
             copy.ColorDepth = ColorDepth;
             copy.AnimRanges = AnimRanges;
             copy.Palette = Palette;
@@ -35,9 +32,133 @@ namespace makesprite {
                 Frame fr = Frames[f];
 
                 for (var l = 0; l < Layers.Count; l++) {
-                    for (int p = 0; p < Width * Height; p++) {
+                    for (int p = 0; p < fr.Width * fr.Height; p++) {
                         fr.PixelData[l][p] = Palette[fr.PixelData[l][p]];
                     }
+                }
+            }
+        }
+
+        // Finds loop frame layers, assigns frames as loop points, and removes the layers
+        public void DetectLoopFrameLayers() {
+            int loopFrameLayerIndex = -1;
+
+            for (int l = 0; l < Layers.Count; l++) {
+                Layer layer = Layers[l];
+
+                if (layer.IsLoopFrameLayer()) {
+                    if (loopFrameLayerIndex == -1) {
+                        loopFrameLayerIndex = l;
+
+                        Program.LogVerbose("Loop frame layer index: " + l);
+                    }
+                    else {
+                        Program.Warning("More than one loop frame layer! Ignoring.");
+                    }
+                }
+            }
+
+            if (loopFrameLayerIndex == -1) {
+                return;
+            }
+
+            for (int f = 0; f < Frames.Count; f++) {
+                Frame frame = Frames[f];
+                if (!frame.IsEmptyOnLayer(loopFrameLayerIndex)) {
+                    frame.IsLoopPoint = true;
+                }
+
+                frame.PixelData.RemoveAt(loopFrameLayerIndex);
+            }
+
+            RemoveLayer(loopFrameLayerIndex);
+        }
+
+        // Finds hitbox layers, adds the hitboxes to the frames, and removes the layers
+        public void DetectHitboxLayers() {
+            List<int> hitboxLayers = new List<int>();
+
+            for (int l = 0; l < Layers.Count; l++) {
+                Layer layer = Layers[l];
+
+                if (layer.Name.StartsWith(Layer.HITBOX_LAYER_NAME_PREFIX)) {
+                    string name = layer.Name.Substring(Layer.HITBOX_LAYER_NAME_PREFIX.Length).TrimStart();
+
+                    hitboxLayers.Add(l);
+                    HitboxNames.Add(name);
+                }
+            }
+
+            for (int f = 0; f < Frames.Count; f++) {
+                Frame frame = Frames[f];
+
+                GetHitboxFromFrame(frame, hitboxLayers);
+
+                for (int l = hitboxLayers.Count - 1; l >= 0; l--) {
+                    frame.PixelData.RemoveAt(hitboxLayers[l]);
+                }
+            }
+
+            for (int l = hitboxLayers.Count - 1; l >= 0; l--) {
+                RemoveLayer(hitboxLayers[l]);
+            }
+        }
+
+        private void GetHitboxFromFrame(Frame frame, List<int> hitboxLayers) {
+            for (int l = 0; l < hitboxLayers.Count; l++) {
+                int layerIndex = hitboxLayers[l];
+
+                Hitbox hitbox = new Hitbox(HitboxNames[l], frame.Width, frame.Height, 0, 0);
+
+                for (int y = 0; y < frame.Height; y++) {
+                    for (int x = 0; x < frame.Width; x++) {
+                        int px = frame.SheetX + x;
+                        int py = frame.SheetY + y;
+
+                        uint value = frame.PixelData[layerIndex][px + (py * frame.PixelDataWidth)];
+                        if (ColorDepth == 8) {
+                            if (value == (uint)TransparentPaletteIndex) {
+                                continue;
+                            }
+                        }
+                        else if (ColorDepth == 16) {
+                            uint alpha = (value & 0xFF00) >> 8;
+                            if (alpha == 0) {
+                                continue;
+                            }
+                        }
+                        else {
+                            uint alpha = (value & 0xFF000000);
+                            if (alpha == 0) {
+                                continue;
+                            }
+                        }
+
+                        hitbox.X = Math.Min(hitbox.X, x);
+                        hitbox.Y = Math.Min(hitbox.Y, y);
+                        hitbox.Width = Math.Max(hitbox.Width, x + 1);
+                        hitbox.Height = Math.Max(hitbox.Height, y + 1);
+                    }
+                }
+
+                frame.Hitboxes.Add(hitbox);
+            }
+        }
+
+        private void RemoveLayer(int layerIndex) {
+            for (var l = 0; l < Layers.Count; l++) {
+                RemoveChildLayers(Layers[l], layerIndex);
+            }
+
+            Layers.RemoveAt(layerIndex);
+        }
+
+        private void RemoveChildLayers(Layer layer, int layerIndex) {
+            for (var c = 0; c < layer.Children.Count; c++) {
+                RemoveChildLayers(layer.Children[c], layerIndex);
+
+                if (layer.Children[c] == Layers[layerIndex]) {
+                    layer.Children.RemoveAt(c);
                 }
             }
         }
@@ -57,11 +178,13 @@ namespace makesprite {
         }
 
         public class Layer {
+            public const string HITBOX_LAYER_NAME_PREFIX = "Hitbox:";
+            public const string LOOP_FRAME_LAYER_NAME = "Loop Frame";
+
             public string Name;
             public bool Visible;
             public bool IsBackground = false;
             public bool IsGroup = false;
-            public bool IsHitbox = false;
             public int BlendMode;
             private Sprite OwningSprite;
             public Layer? Parent = null;
@@ -70,6 +193,13 @@ namespace makesprite {
             public Layer(Sprite owner) {
                 OwningSprite = owner;
                 Name = "Layer";
+                Visible = true;
+                BlendMode = 0;
+            }
+
+            public Layer(Sprite owner, string name) {
+                OwningSprite = owner;
+                Name = name;
                 Visible = true;
                 BlendMode = 0;
             }
@@ -103,34 +233,62 @@ namespace makesprite {
             }
 
             public bool CanDraw() {
-                if (IsHitbox) {
-                    return true;
-                }
-                else if (IsGroup) {
+                if (IsGroup) {
                     return false;
                 }
 
                 return IsVisible();
             }
+
+            public bool IsLoopFrameLayer() {
+                if (IsGroup) {
+                    return false;
+                }
+
+                return Name.StartsWith(LOOP_FRAME_LAYER_NAME);
+            }
         }
 
         public class Frame {
+            public int Width;
+            public int Height;
             public int Duration;
+            public int SheetX;
+            public int SheetY;
+            public int ID;
+            public bool IsLoopPoint = false;
+            public Vector2? Offsets = null;
+            public List<Hitbox> Hitboxes = new List<Hitbox>();
             public List<uint[]> PixelData = new List<uint[]>();
+            public int PixelDataWidth;
+            public int PixelDataHeight;
             private Sprite OwningSprite;
 
-            public Frame(Sprite owner) {
+            public Frame(Sprite owner, int width, int height) {
+                Width = width;
+                Height = height;
                 OwningSprite = owner;
             }
 
             public Frame Copy() {
-                Frame copy = new Frame(OwningSprite);
+                Frame copy = new Frame(OwningSprite, Width, Height);
                 copy.Duration = Duration;
+                copy.SheetX = SheetX;
+                copy.SheetY = SheetY;
+                copy.ID = ID;
+                copy.IsLoopPoint = IsLoopPoint;
+                copy.Offsets = Offsets;
+                copy.PixelDataWidth = PixelDataWidth;
+                copy.PixelDataHeight = PixelDataHeight;
+
+                for (int h = 0; h < Hitboxes.Count; h++) {
+                    copy.Hitboxes.Add(Hitboxes[h].Copy());
+                }
+
                 return copy;
             }
 
             public bool IsEmptyOnLayer(int layerIndex) {
-                int canvasSize = OwningSprite.Width * OwningSprite.Height;
                 uint[] pixelData = PixelData[layerIndex];
 
                 if (OwningSprite.ColorDepth == 8) {
@@ -138,39 +296,71 @@ namespace makesprite {
                         return true;
                     }
 
-                    for (int p = 0; p < canvasSize; p++) {
-                        uint index = pixelData[p];
-                        if (index == (uint)OwningSprite.TransparentPaletteIndex) {
-                            continue;
-                        }
+                    for (int y = 0; y < Height; y++) {
+                        for (int x = 0; x < Width; x++) {
+                            int px = SheetX + x;
+                            int py = SheetY + y;
+                            uint index = pixelData[px + (py * PixelDataWidth)];
+                            if (index == (uint)OwningSprite.TransparentPaletteIndex) {
+                                continue;
+                            }
 
-                        uint argb = OwningSprite.Palette[index];
-                        uint alpha = (argb & 0xFF000000);
-                        if (alpha != 0) {
-                            return false;
+                            uint argb = OwningSprite.Palette[index];
+                            uint alpha = (argb & 0xFF000000);
+                            if (alpha != 0) {
+                                return false;
+                            }
                         }
                     }
                 }
                 else if (OwningSprite.ColorDepth == 16) {
-                    for (int p = 0; p < canvasSize; p++) {
-                        uint value = pixelData[p];
-                        uint alpha = (value & 0xFF00);
-                        if (alpha != 0) {
-                            return false;
+                    for (int y = 0; y < Height; y++) {
+                        for (int x = 0; x < Width; x++) {
+                            int px = SheetX + x;
+                            int py = SheetY + y;
+                            uint value = pixelData[px + (py * PixelDataWidth)];
+                            uint alpha = (value & 0xFF00);
+                            if (alpha != 0) {
+                                return false;
+                            }
                         }
                     }
                 }
                 else {
-                    for (int p = 0; p < canvasSize; p++) {
-                        uint argb = pixelData[p];
-                        uint alpha = (argb & 0xFF000000);
-                        if (alpha != 0) {
-                            return false;
+                    for (int y = 0; y < Height; y++) {
+                        for (int x = 0; x < Width; x++) {
+                            int px = SheetX + x;
+                            int py = SheetY + y;
+                            uint argb = pixelData[px + (py * PixelDataWidth)];
+                            uint alpha = (argb & 0xFF000000);
+                            if (alpha != 0) {
+                                return false;
+                            }
                         }
                     }
                 }
 
                 return true;
+            }
+        }
+
+        public class Hitbox {
+            public string Name;
+            public int X;
+            public int Y;
+            public int Width;
+            public int Height;
+
+            public Hitbox(string name, int x, int y, int width, int height) {
+                Name = name;
+                X = x;
+                Y = y;
+                Width = width;
+                Height = height;
+            }
+
+            public Hitbox Copy() {
+                return new Hitbox(Name, X, Y, Width, Height);
             }
         }
     }

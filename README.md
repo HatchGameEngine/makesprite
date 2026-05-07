@@ -30,6 +30,10 @@ makesprite -i font.ase --sheet-path "fonts/" -f
 ### Options
 - -i, --input: A list of files to convert.
 - -o, --output: The name of the output. This option also defines the name of the output spritesheets. If splitting by files, this option only defines the name of the output spritesheets, and the output sprites are named after the input file names. If splitting by groups, the output sprites are named after the group names, prefixed by the name passed to this option.
+- -f, --format: The format of the output sprite. Accepted options:
+  - rsdkv5: Export as a RSDKv5 sprite.
+  - json: Export as JSON.
+  The default is 'rsdkv5'.
 - --sheet-path: The parent path to use for the spritesheet filenames.
 - --max-sheet-width: The maximum width of a spritesheet.
 - --max-sheet-height: The maximum height of a spritesheet.

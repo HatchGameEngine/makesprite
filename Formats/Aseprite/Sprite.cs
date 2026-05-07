@@ -54,7 +54,7 @@ namespace Aseprite {
         public new class Frame : makesprite.Sprite.Frame {
             public List<int> LinkedFrameIndices = new List<int>();
 
-            public Frame(Aseprite.Sprite ase) : base((makesprite.Sprite)ase) {}
+            public Frame(Aseprite.Sprite ase, int width, int height) : base((makesprite.Sprite)ase, width, height) {}
         }
     }
 }

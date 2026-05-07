@@ -1,19 +1,20 @@
 using System;
 using System.IO;
+using System.Text;
+using System.Text.Json;
 
 namespace makesprite {
     class Program {
-        public const string SPRITE_EXTENSION = ".bin";
+        private static List<string> InputFiles = new List<string>();
 
-        static List<string> InputFiles = new List<string>();
-
-        static string OutputFilename = "";
+        private static string OutputFilename = "";
+        public static string SpriteExtension = "";
 
         public static Converter.Options ConverterOptions = new Converter.Options();
 
-        static bool GroupSplitSheets = false;
-        static bool Depalettize = false;
-        static bool IgnorePaletteMismatch = false;
+        private static bool GroupSplitSheets = false;
+        private static bool Depalettize = false;
+        private static bool IgnorePaletteMismatch = false;
 
         private class SpriteGroup {
             public List<Sprite> Sprites = new List<Sprite>();
@@ -37,6 +38,15 @@ namespace makesprite {
                 return 1;
             }
 
+            switch (ConverterOptions.OutputFormat) {
+            case Converter.SpriteFormat.RSDKv5:
+                SpriteExtension = ".bin";
+                break;
+            case Converter.SpriteFormat.JSON:
+                SpriteExtension = ".json";
+                break;
+            }
+
             List<Sprite> sprites = ReadInputFiles();
 
             Converter converter = new Converter();
@@ -45,7 +55,7 @@ namespace makesprite {
             string outFilename = OutputFilename;
             if (outFilename == "") {
                 outFilename = Path.GetFileNameWithoutExtension(InputFiles[0]);
-                outFilename += SPRITE_EXTENSION;
+                outFilename += SpriteExtension;
             }
 
             if (ConverterOptions.SplitBy == Converter.SplitMode.Groups) {
@@ -69,16 +79,24 @@ namespace makesprite {
             for (int i = 0; i < InputFiles.Count; i++) {
                 Sprite? sprite = null;
                 string filename = InputFiles[i];
+                string format = "";
 
                 LogVerbose("Reading file " + filename);
 
                 try {
-                    sprite = DetectAndReadSpriteFile(filename);
+                    sprite = DetectAndReadSpriteFile(filename, out format);
                 }
                 catch (System.IO.FileNotFoundException) {
                     Console.WriteLine("Could not find file " + filename);
                     Environment.Exit(1);
                 }
+
+                if (sprite == null) {
+                    Console.WriteLine("Unrecognized file format for " + filename);
+                    Environment.Exit(1);
+                }
+
+                LogVerbose("Format: " + format);
 
                 if (Depalettize) {
                     LogVerbose("Depalettizing " + filename);
@@ -92,52 +110,67 @@ namespace makesprite {
             return sprites;
         }
 
-        private static Sprite DetectAndReadSpriteFile(string filename) {
-            Sprite? sprite = null;
-
-            string format = "unknown";
+        private static Sprite? DetectAndReadSpriteFile(string filename, out string format) {
+            format = "unknown";
 
             using (FileStream stream = new FileStream(filename, FileMode.Open)) {
+                // Detect .aseprite file
                 if (Aseprite.File.IsValid(stream)) {
                     format = "Aseprite file";
 
                     stream.Seek(0, SeekOrigin.Begin);
 
                     Aseprite.File file = new Aseprite.File();
-                    sprite = file.Read(stream);
+                    return file.Read(stream);
                 }
-
                 stream.Seek(0, SeekOrigin.Begin);
 
+                // Detect GIF file
                 if (GIF.File.IsValid(stream)) {
                     format = "GIF";
 
                     stream.Seek(0, SeekOrigin.Begin);
 
                     GIF.File file = new GIF.File(stream);
-                    sprite = new GIF.Sprite(file, Path.GetFileNameWithoutExtension(filename), IgnorePaletteMismatch);
+                    return new GIF.Sprite(file, Path.GetFileNameWithoutExtension(filename), IgnorePaletteMismatch);
                 }
-
                 stream.Seek(0, SeekOrigin.Begin);
 
+                // Detect PNG file
                 if (PNG.File.IsValid(stream)) {
                     format = "PNG";
 
                     stream.Seek(0, SeekOrigin.Begin);
 
                     PNG.File file = new PNG.File(stream);
-                    sprite = new PNG.Sprite(file, Path.GetFileNameWithoutExtension(filename));
+                    return new PNG.Sprite(file, Path.GetFileNameWithoutExtension(filename));
+                }
+                stream.Seek(0, SeekOrigin.Begin);
+
+                // Detect JSON file
+                using (StreamReader reader = new StreamReader(stream, Encoding.UTF8)) {
+                    string json = reader.ReadToEnd();
+
+                    if (IsJSON(json)) {
+                        format = "JSON";
+
+                        return RSDKv5.Sprite.DeserializeFromJSON(json, filename);
+                    }
                 }
             }
 
-            if (sprite == null) {
-                Console.WriteLine("Unrecognized file format for " + filename);
-                Environment.Exit(1);
+            return null;
+        }
+
+        private static bool IsJSON(string json) {
+            try {
+                using (JsonDocument.Parse(json)) {
+                    return true;
+                }
             }
-
-            LogVerbose("Format: " + format);
-
-            return sprite;
+            catch (JsonException) {
+                return false;
+            }
         }
 
         private static Dictionary<string, SpriteGroup> SplitSpritesByGroups(List<Sprite> sprites, List<string> filenames) {
@@ -151,7 +184,7 @@ namespace makesprite {
                 string outFilename;
                 if (OutputFilename == "") {
                     outFilename = Path.GetFileNameWithoutExtension(filenames[i]);
-                    outFilename += SPRITE_EXTENSION;
+                    outFilename += SpriteExtension;
                 }
                 else {
                     outFilename = OutputFilename;
@@ -160,24 +193,10 @@ namespace makesprite {
                 string baseFilename = Path.GetFileNameWithoutExtension(outFilename);
                 string fileExtension = Path.GetExtension(outFilename);
 
-                // Find the loop frame layer first
-                int loopFrameLayerIndex = -1;
-                for (int l = 0; l < sprite.Layers.Count; l++) {
-                    Sprite.Layer layer = sprite.Layers[l];
-                    if (Converter.IsLoopFrameLayer(layer)) {
-                        if (loopFrameLayerIndex == -1) {
-                            loopFrameLayerIndex = l;
-                        }
-                        else {
-                            Warning("More than one loop frame layer! Ignoring.");
-                        }
-                    }
-                }
-
                 // Now split by groups
                 for (int l = 0; l < sprite.Layers.Count; l++) {
                     Sprite.Layer layer = sprite.Layers[l];
-                    if (!layer.IsGroup || layer.Parent != null || l == loopFrameLayerIndex) {
+                    if (!layer.IsGroup || layer.Parent != null) {
                         continue;
                     }
 
@@ -205,17 +224,7 @@ namespace makesprite {
                             frame.PixelData.Add(originalFrame.PixelData[l + 1 + p]);
                         }
 
-                        // Add the pixel data of the loop frame layer
-                        if (loopFrameLayerIndex != -1) {
-                            frame.PixelData.Add(originalFrame.PixelData[loopFrameLayerIndex]);
-                        }
-
                         groupSprite.Frames.Add(frame);
-                    }
-
-                    // Add the loop frame layer itself
-                    if (loopFrameLayerIndex != -1) {
-                        groupSprite.Layers.Add(sprite.Layers[loopFrameLayerIndex]);
                     }
 
                     currentGroup.Sprites.Add(groupSprite);
@@ -376,6 +385,28 @@ Options:
                 case "-o":
                     OutputFilename = GetNextArg(args, index);
                     return true;
+                case "--format": {
+                    Converter.SpriteFormat format;
+
+                    string arg = GetNextArg(args, index);
+                    switch (arg.ToLower()) {
+                    case "rsdkv5":
+                        format = Converter.SpriteFormat.RSDKv5;
+                        break;
+                    case "json":
+                        format = Converter.SpriteFormat.JSON;
+                        break;
+                    default:
+                        Console.WriteLine("Invalid argument for " + option);
+                        Environment.Exit(1);
+                        return false;
+                    }
+
+                    ConverterOptions.OutputFormat = format;
+                    ConverterOptions.UseRDSKCompatibleSheetPaths = format == Converter.SpriteFormat.RSDKv5;
+
+                    return true;
+                }
                 case "--sheet-path":
                     ConverterOptions.SheetPath = GetNextArg(args, index);
                     return true;
@@ -437,7 +468,7 @@ Options:
                     string arg = GetNextArg(args, index);
                     switch (arg.ToLower()) {
                     case "none":
-                        sortMode = SpritePacker.SortMode.ID;
+                        sortMode = SpritePacker.SortMode.Index;
                         break;
                     case "area":
                         sortMode = SpritePacker.SortMode.Area;
@@ -459,7 +490,9 @@ Options:
                         Environment.Exit(1);
                         return false;
                     }
+
                     ConverterOptions.SortBy = sortMode;
+
                     return true;
                 }
                 default:

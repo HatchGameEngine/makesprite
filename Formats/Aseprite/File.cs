@@ -2,7 +2,9 @@ using System.IO;
 using System.IO.Compression;
 
 namespace Aseprite {
-    public class File {
+    public class File : makesprite.Sprite {
+        private int Width;
+        private int Height;
         public uint Flags;
         public byte PixelWidth;
         public byte PixelHeight;
@@ -37,14 +39,15 @@ namespace Aseprite {
             ushort magicNumber = reader.ReadUInt16();
             ushort frameCount = reader.ReadUInt16();
 
-            sprite.Width = reader.ReadUInt16();
-            sprite.Height = reader.ReadUInt16();
+            Width = reader.ReadUInt16();
+            Height = reader.ReadUInt16();
             sprite.ColorDepth = reader.ReadUInt16();
             Flags = reader.ReadUInt32();
             reader.ReadUInt16(); // formerly Speed
             reader.ReadUInt32();
             reader.ReadUInt32();
-            sprite.TransparentPaletteIndex = reader.ReadByte();
+            TransparentPaletteIndex = reader.ReadByte();
+            sprite.TransparentPaletteIndex = TransparentPaletteIndex;
             reader.BaseStream.Seek(3, SeekOrigin.Current);
             reader.ReadUInt16(); // Number of colors
             PixelWidth = reader.ReadByte();
@@ -62,7 +65,7 @@ namespace Aseprite {
             }
 
             // Resolve linked frames
-            int frameSize = sprite.Width * sprite.Height;
+            int frameSize = Width * Height;
             for (int i = 0; i < frameCount; i++) {
                 Sprite.Frame f = (Sprite.Frame)sprite.Frames[i];
                 for (int l = 0; l < sprite.Layers.Count; l++) {
@@ -74,11 +77,13 @@ namespace Aseprite {
                 }
             }
 
+            sprite.DetectLoopFrameLayers();
+
             return sprite;
         }
 
         public Sprite.Frame ReadFrame(Sprite sprite, BinaryReader reader) {
-            Sprite.Frame frame = new Sprite.Frame(sprite);
+            Sprite.Frame frame = new Sprite.Frame(sprite, Width, Height);
 
             uint frameSize = reader.ReadUInt32();
             ushort magicNumber = reader.ReadUInt16();
@@ -93,10 +98,12 @@ namespace Aseprite {
                 chunkCount = oldChunkCount;
             }
 
-            frame.Duration = (duration * 60 + 999) / 1000; // ceil
+            frame.Duration = duration;
 
             for (int i = 0; i < sprite.Layers.Count; i++) {
-                frame.PixelData.Add(new uint[sprite.Width * sprite.Height]);
+                frame.PixelDataWidth = Width;
+                frame.PixelDataHeight = Height;
+                frame.PixelData.Add(new uint[Width * Height]);
                 frame.LinkedFrameIndices.Add(-1);
             }
 
@@ -213,7 +220,9 @@ namespace Aseprite {
             Sprite.Layer layer = new Sprite.Layer(sprite, layerName, flags, layerType, blendMode);
             sprite.AddLayer(layer, layerChildLevel);
 
-            frame.PixelData.Add(new uint[sprite.Width * sprite.Height]);
+            frame.PixelDataWidth = Width;
+            frame.PixelDataHeight = Height;
+            frame.PixelData.Add(new uint[Width * Height]);
             frame.LinkedFrameIndices.Add(-1);
         }
 
@@ -256,21 +265,21 @@ namespace Aseprite {
                 case 8:
                     for (int y = 0; y < cheight; y++) {
                         for (int x = 0; x < cwidth; x++) {
-                            pixelData[posX + x + (posY + y) * sprite.Width] = reader.ReadByte();
+                            pixelData[posX + x + (posY + y) * Width] = reader.ReadByte();
                         }
                     }
                     break;
                 case 16:
                     for (int y = 0; y < cheight; y++) {
                         for (int x = 0; x < cwidth; x++) {
-                            pixelData[posX + x + (posY + y) * sprite.Width] = reader.ReadUInt16();
+                            pixelData[posX + x + (posY + y) * Width] = reader.ReadUInt16();
                         }
                     }
                     break;
                 case 32:
                     for (int y = 0; y < cheight; y++) {
                         for (int x = 0; x < cwidth; x++) {
-                            pixelData[posX + x + (posY + y) * sprite.Width] = reader.ReadUInt32();
+                            pixelData[posX + x + (posY + y) * Width] = reader.ReadUInt32();
                         }
                     }
                     break;
@@ -311,8 +320,8 @@ namespace Aseprite {
                     }
                     int px = posX + x;
                     int py = posY + y;
-                    if (px >= 0 && py >= 0 && px < sprite.Width && py < sprite.Height) {
-                        pixelData[px + py * sprite.Width] = value;
+                    if (px >= 0 && py >= 0 && px < Width && py < Height) {
+                        pixelData[px + py * Width] = value;
                     }
                 }
             }

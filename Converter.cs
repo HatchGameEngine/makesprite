@@ -2,15 +2,19 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Text.Json;
 
 using Hatch;
 using RSDKv5;
 
 namespace makesprite {
     public class Converter {
-        private const string LOOP_FRAME_LAYER_NAME = "Loop Frame";
-        private const string HITBOX_LAYER_NAME_PREFIX = "Hitbox:";
         private const string FONT_RANGE_NAME_PREFIX = "Font:";
+
+        public enum SpriteFormat {
+            RSDKv5,
+            JSON
+        }
 
         public enum SplitMode {
             None,
@@ -18,29 +22,15 @@ namespace makesprite {
             Groups
         }
 
-        public static bool IsLoopFrameLayer(Sprite.Layer layer) {
-            if (layer.IsGroup) {
-                return false;
-            }
-
-            return layer.Name.StartsWith(LOOP_FRAME_LAYER_NAME);
-        }
-
         public class ConversionInfo {
             public Sprite Input;
             public string Filename;
 
-            public int LoopFrameLayerIndex = -1;
-            public List<int> HitboxLayers = new List<int>();
-            public List<string> HitboxNames = new List<string>();
-
             public List<int> frameMap = new List<int>();
             public List<int> frameDuration = new List<int>();
-            public bool[]? frameIsLoopPoint = null;
             public List<Rectangle> frameCrops = new List<Rectangle>();
             public List<Vector2> frameSizes = new List<Vector2>();
             public List<Vector2> frameOffsets = new List<Vector2>();
-            public List<Rectangle[]?> frameHitboxes = new List<Rectangle[]?>();
             public List<System.Drawing.Color[]> frameSheets = new List<System.Drawing.Color[]>();
 
             public int HitboxStartIndex = 0;
@@ -48,48 +38,11 @@ namespace makesprite {
             public ConversionInfo(Sprite input, string filename) {
                 Input = input;
                 Filename = filename;
-
-                // Find loop frame and hitbox layers
-                for (int l = 0; l < input.Layers.Count; l++) {
-                    Sprite.Layer layer = input.Layers[l];
-
-                    if (IsLoopFrameLayer(layer)) {
-                        if (LoopFrameLayerIndex == -1) {
-                            LoopFrameLayerIndex = l;
-                        }
-                        else {
-                            Program.Warning("More than one loop frame layer! Ignoring.");
-                        }
-
-                        layer.Visible = false;
-                    }
-                    else if (layer.Name.StartsWith(HITBOX_LAYER_NAME_PREFIX)) {
-                        string name = layer.Name.Substring(HITBOX_LAYER_NAME_PREFIX.Length).TrimStart();
-                        HitboxLayers.Add(l);
-                        HitboxNames.Add(name);
-                        layer.IsHitbox = true;
-                    }
-                }
-            }
-        }
-
-        public class SpritesheetImage {
-            public int Width;
-            public int Height;
-            public int ColorDepth;
-            public byte[] Data;
-            public Color[]? Palette;
-
-            public SpritesheetImage(int width, int height, int colorDepth, Color[]? palette) {
-                Width = width;
-                Height = height;
-                ColorDepth = colorDepth;
-                Data = new byte[width * height * (colorDepth / 8)];
-                Palette = palette;
             }
         }
 
         public class Options {
+            public SpriteFormat OutputFormat = SpriteFormat.RSDKv5;
             public bool SaveSprites = true;
             public bool SaveSheets = true;
             public bool SavePalettes = false;
@@ -105,6 +58,7 @@ namespace makesprite {
             public bool TrimFrames = true;
             public bool MergeDuplicateFrames = true;
             public bool Sequence = false;
+            public bool UseRDSKCompatibleSheetPaths = false;
             public bool IsFont = false;
             public bool Verbose = false;
         }
@@ -137,13 +91,14 @@ namespace makesprite {
                 Sprite? sprite = sprites[i];
 
                 Program.LogVerbose("Sprite " + i + ": " + filenames[i]);
-                Program.LogVerbose("  Size: " + sprite.Width + "x" + sprite.Height);
                 Program.LogVerbose("  Color depth: " + sprite.ColorDepth + " bits per pixel");
 
                 // Check ColorDepth
                 if (sprite.ColorDepth != 8) {
                     All8Bpp = false;
                 }
+
+                sprite.DetectHitboxLayers();
 
                 conversionInfos.Add(new ConversionInfo(sprite, filenames[i]));
             }
@@ -168,14 +123,16 @@ namespace makesprite {
                 SheetRelFilename = CurrentOptions.SheetPath;
             }
             else if (ParentPath != null) {
+                bool onlyResources = !CurrentOptions.UseRDSKCompatibleSheetPaths;
                 string parent = "";
-                if (PathHelper.GetSpritesFolder(OutFilenamePath, out parent)) {
+
+                if (PathHelper.GetSpritesFolder(OutFilenamePath, out parent, onlyResources)) {
                     string relFilename = ParentPath.FullName;
                     if (relFilename.Length > parent.Length) {
                         SheetRelFilename = relFilename.Substring(parent.Length + 1);
                     }
                     else {
-                        IsInRootPath = PathHelper.EndsInRootPath(parent);
+                        IsInRootPath = PathHelper.EndsInRootPath(parent, onlyResources);
                     }
                 }
             }
@@ -250,6 +207,8 @@ namespace makesprite {
                 GenerateSprites(conversionInfos, spritesheetNames, outputSpriteFilename);
             }
 
+            Program.LogVerbose("Converted " + sprites.Count + " sprite(s)");
+
             return true;
         }
 
@@ -271,75 +230,33 @@ namespace makesprite {
                 return;
             }
 
-            int centerX = sprite.Width / 2;
-            int centerY = sprite.Height / 2;
-
-            convert.frameIsLoopPoint = new bool[sprite.Frames.Count];
-
             Program.LogVerbose("Number of frames in " + convert.Filename + ": " + sprite.Frames.Count);
 
             // Obtain all unique frame spritesheets
             for (int f = 0; f < sprite.Frames.Count; f++) {
-                int canvasSize = sprite.Width * sprite.Height;
+                Sprite.Frame frame = sprite.Frames[f];
 
+                // Initialize canvas
+                int canvasSize = frame.Width * frame.Height;
                 System.Drawing.Color[] frameCanvas = new System.Drawing.Color[canvasSize];
                 for (int p = 0; p < canvasSize; p++) {
                     frameCanvas[p] = System.Drawing.Color.Transparent;
                 }
 
-                // Get loop index if possible
-                if (convert.LoopFrameLayerIndex != -1) {
-                    bool isEmpty = sprite.Frames[f].IsEmptyOnLayer(convert.LoopFrameLayerIndex);
-                    convert.frameIsLoopPoint[f] = !isEmpty;
-                }
-
-                // Prepare hitboxes
-                if (convert.HitboxLayers.Count > 0) {
-                    convert.frameHitboxes.Add(new Rectangle[convert.HitboxLayers.Count]);
-                }
-                else {
-                    convert.frameHitboxes.Add(null);
-                }
-
-                // Write pixels onto frame's canvas
-                Rectangle crop = new Rectangle(sprite.Width, sprite.Height, 0, 0);
+                // Write pixels onto the frame's canvas
+                Rectangle crop = new Rectangle(frame.Width, frame.Height, 0, 0);
                 if (sprite.ColorDepth == 8) {
-                    BuildIndexedFrame(convert, sprite.Frames[f], frameCanvas, crop);
+                    BuildIndexedFrame(convert, frame, frameCanvas, crop);
                 }
                 else if (sprite.ColorDepth == 16) {
-                    BuildGrayscaleFrame(convert, sprite.Frames[f], frameCanvas, crop);
+                    BuildGrayscaleFrame(convert, frame, frameCanvas, crop);
                 }
                 else {
-                    BuildFrame(convert, sprite.Frames[f], frameCanvas, crop);
-                }
-
-                // Adjust Hitboxes
-                for (int h = 0; h < convert.HitboxLayers.Count; h++) {
-                    Rectangle[]? frameHitboxes = convert.frameHitboxes.Last();
-                    if (frameHitboxes == null) {
-                        continue;
-                    }
-
-                    Rectangle? hitbox = frameHitboxes[h];
-                    bool hasHitbox = hitbox != null;
-                    if (hitbox == null) {
-                        hitbox = new Rectangle();
-                    }
-                    if (hasHitbox) {
-                        if (!CurrentOptions.KeepCanvasOffsets) {
-                            hitbox.X -= centerX;
-                            hitbox.Y -= centerY;
-                            hitbox.Width -= centerX;
-                            hitbox.Height -= centerY;
-                        }
-                        hitbox.Width += 1;
-                        hitbox.Height += 1;
-                    }
-                    frameHitboxes[h] = hitbox;
+                    BuildFrame(convert, frame, frameCanvas, crop);
                 }
 
                 // Hash canvas to check for uniqueness
-                uint frameHash = GetFrameHash(sprite, frameCanvas, crop, 0xDEADBEEF);
+                uint frameHash = GetFrameHash(frame, frameCanvas, crop, 0xDEADBEEF);
 
                 // Adjust Box from X1Y1X2Y2 to XYWH
                 crop.Width -= crop.X - 1;
@@ -350,8 +267,16 @@ namespace makesprite {
                 // Add frame properties
                 convert.frameCrops.Add(crop);
                 convert.frameSheets.Add(frameCanvas);
-                convert.frameSizes.Add(new Vector2(sprite.Width, sprite.Height));
-                convert.frameDuration.Add(sprite.Frames[f].Duration);
+                convert.frameSizes.Add(new Vector2(frame.Width, frame.Height));
+                convert.frameDuration.Add(frame.Duration);
+
+                Vector2 frameSize;
+                if (CurrentOptions.TrimFrames) {
+                    frameSize = new Vector2(crop.Width, crop.Height);
+                }
+                else {
+                    frameSize = new Vector2(frame.Width, frame.Height);
+                }
 
                 if (HashToFrameIndex.ContainsKey(frameHash)) {
                     convert.frameMap.Add(HashToFrameIndex[frameHash]);
@@ -365,29 +290,46 @@ namespace makesprite {
 
                     convert.frameMap.Add(Boxes.Count);
 
-                    Rectangle rect;
-                    if (CurrentOptions.TrimFrames) {
-                        rect = new Rectangle(0, 0, crop.Width, crop.Height);
-                    }
-                    else {
-                        rect = new Rectangle(0, 0, sprite.Width, sprite.Height);
-                    }
-
+                    Rectangle rect = new Rectangle(0, 0, frameSize.X, frameSize.Y);
                     SpritePacker.Box box = new SpritePacker.Box(Boxes.Count, rect);
                     Boxes.Add(box);
+                }
+
+                // Get offsets
+                int offsetX = 0;
+                int offsetY = 0;
+
+                if (frame.Offsets != null) {
+                    offsetX = frame.Offsets.X;
+                    offsetY = frame.Offsets.Y;
+                }
+                else {
+                    if (CurrentOptions.TrimFrames) {
+                        offsetX = crop.X;
+                        offsetY = crop.Y;
+                    }
+
+                    if (!CurrentOptions.KeepCanvasOffsets) {
+                        offsetX -= frame.Width / 2;
+                        offsetY -= frame.Height / 2;
+
+                        // Adjust hitboxes
+                        for (int h = 0; h < frame.Hitboxes.Count; h++) {
+                            Sprite.Hitbox hitbox = frame.Hitboxes[h];
+                            hitbox.X -= frame.Width / 2;
+                            hitbox.Y -= frame.Height / 2;
+                            hitbox.Width -= frame.Width / 2;
+                            hitbox.Height -= frame.Height / 2;
+                        }
+                    }
                 }
 
                 int frameOffsetX = 0;
                 int frameOffsetY = 0;
 
                 if (!CurrentOptions.NoOffsets) {
-                    frameOffsetX = crop.X;
-                    frameOffsetY = crop.Y;
-
-                    if (!CurrentOptions.KeepCanvasOffsets) {
-                        frameOffsetX -= centerX;
-                        frameOffsetY -= centerY;
-                    }
+                    frameOffsetX = offsetX;
+                    frameOffsetY = offsetY;
                 }
 
                 frameOffsetX += CurrentOptions.OffsetX;
@@ -397,16 +339,16 @@ namespace makesprite {
             }
         }
 
-        private uint GetFrameHash(Sprite sprite, System.Drawing.Color[] canvas, Rectangle crop, uint frameHash) {
+        private uint GetFrameHash(Sprite.Frame frame, System.Drawing.Color[] canvas, Rectangle crop, uint frameHash) {
             if (crop.Width == 0 || crop.Height == 0) {
                 return frameHash;
             }
 
-            int canvasSize = sprite.Width * sprite.Height;
+            int canvasSize = frame.Width * frame.Height;
 
             for (int p = 0; p < canvasSize; p++) {
-                int px = p % sprite.Width;
-                int py = p / sprite.Width;
+                int px = p % frame.Width;
+                int py = p / frame.Width;
                 // Width and Height in this respect are just X2 and Y2
                 if (px >= crop.X && py >= crop.Y &&
                     px <= crop.Width && py <= crop.Height) {
@@ -417,23 +359,8 @@ namespace makesprite {
             return frameHash;
         }
 
-        private void AddHitbox(Rectangle[] frameHitboxes, int hitboxIndex, int px, int py, int width, int height) {
-            if (frameHitboxes[hitboxIndex] == null) {
-                frameHitboxes[hitboxIndex] = new Rectangle(width, height, 0, 0);
-            }
-
-            Rectangle hitbox = frameHitboxes[hitboxIndex];
-            hitbox.X = Math.Min(hitbox.X, px);
-            hitbox.Y = Math.Min(hitbox.Y, py);
-            hitbox.Width = Math.Max(hitbox.Width, px);
-            hitbox.Height = Math.Max(hitbox.Height, py);
-        }
-
         private void BuildFrame(ConversionInfo convert, Sprite.Frame frame, System.Drawing.Color[] canvas, Rectangle crop) {
             Sprite? sprite = convert.Input;
-            int canvasSize = sprite.Width * sprite.Height;
-
-            Rectangle[]? frameHitboxes = convert.frameHitboxes.Last();
 
             for (int l = 0; l < frame.PixelData.Count; l++) {
                 Sprite.Layer layer = sprite.Layers[l];
@@ -441,27 +368,12 @@ namespace makesprite {
                     continue;
                 }
 
-                if (layer.IsHitbox) {
-                    if (frameHitboxes == null) {
-                        continue;
-                    }
+                for (int y = 0; y < frame.Height; y++) {
+                    for (int x = 0; x < frame.Width; x++) {
+                        int px = frame.SheetX + x;
+                        int py = frame.SheetY + y;
 
-                    int hitboxIndex = convert.HitboxLayers.IndexOf(l);
-
-                    for (int p = 0; p < canvasSize; p++) {
-                        uint argb = frame.PixelData[l][p];
-                        uint color = (argb & 0xFF000000);
-                        if (color == 0) {
-                            continue;
-                        }
-
-                        int px = p % sprite.Width;
-                        int py = p / sprite.Width;
-                        AddHitbox(frameHitboxes, hitboxIndex, px, py, sprite.Width, sprite.Height);
-                    }
-                }
-                else {
-                    for (int p = 0; p < canvasSize; p++) {
+                        int p = px + (py * frame.PixelDataWidth);
                         uint argb = frame.PixelData[l][p];
                         uint color = (argb & 0xFF000000);
                         if (color == 0) {
@@ -472,14 +384,13 @@ namespace makesprite {
                         color |= (argb & 0xFF00);
                         color |= (argb & 0xFF) << 16;
 
+                        p = x + (y * frame.Width);
                         canvas[p] = System.Drawing.Color.FromArgb((int)color);
 
-                        int px = p % sprite.Width;
-                        int py = p / sprite.Width;
-                        crop.X = Math.Min(crop.X, px);
-                        crop.Y = Math.Min(crop.Y, py);
-                        crop.Width = Math.Max(crop.Width, px);
-                        crop.Height = Math.Max(crop.Height, py);
+                        crop.X = Math.Min(crop.X, x);
+                        crop.Y = Math.Min(crop.Y, y);
+                        crop.Width = Math.Max(crop.Width, x);
+                        crop.Height = Math.Max(crop.Height, y);
                     }
                 }
             }
@@ -487,9 +398,6 @@ namespace makesprite {
 
         private void BuildGrayscaleFrame(ConversionInfo convert, Sprite.Frame frame, System.Drawing.Color[] canvas, Rectangle crop) {
             Sprite? sprite = convert.Input;
-            int canvasSize = sprite.Width * sprite.Height;
-
-            Rectangle[]? frameHitboxes = convert.frameHitboxes.Last();
 
             for (int l = 0; l < frame.PixelData.Count; l++) {
                 Sprite.Layer layer = sprite.Layers[l];
@@ -497,27 +405,12 @@ namespace makesprite {
                     continue;
                 }
 
-                if (layer.IsHitbox) {
-                    if (frameHitboxes == null) {
-                        continue;
-                    }
+                for (int y = 0; y < frame.Height; y++) {
+                    for (int x = 0; x < frame.Width; x++) {
+                        int px = frame.SheetX + x;
+                        int py = frame.SheetY + y;
 
-                    int hitboxIndex = convert.HitboxLayers.IndexOf(l);
-
-                    for (int p = 0; p < canvasSize; p++) {
-                        uint value = frame.PixelData[l][p];
-                        uint alpha = (value & 0xFF00) >> 8;
-                        if (alpha == 0) {
-                            continue;
-                        }
-
-                        int px = p % sprite.Width;
-                        int py = p / sprite.Width;
-                        AddHitbox(frameHitboxes, hitboxIndex, px, py, sprite.Width, sprite.Height);
-                    }
-                }
-                else {
-                    for (int p = 0; p < canvasSize; p++) {
+                        int p = px + (py * frame.PixelDataWidth);
                         uint value = frame.PixelData[l][p];
                         uint alpha = (value & 0xFF00) >> 8;
                         if (alpha == 0) {
@@ -526,14 +419,13 @@ namespace makesprite {
 
                         value &= 0xFF;
 
+                        p = x + (y * frame.Width);
                         canvas[p] = System.Drawing.Color.FromArgb((int)alpha, (int)value, (int)value, (int)value);
 
-                        int px = p % sprite.Width;
-                        int py = p / sprite.Width;
-                        crop.X = Math.Min(crop.X, px);
-                        crop.Y = Math.Min(crop.Y, py);
-                        crop.Width = Math.Max(crop.Width, px);
-                        crop.Height = Math.Max(crop.Height, py);
+                        crop.X = Math.Min(crop.X,px);
+                        crop.Y = Math.Min(crop.Y, y);
+                        crop.Width = Math.Max(crop.Width, x);
+                        crop.Height = Math.Max(crop.Height, y);
                     }
                 }
             }
@@ -541,9 +433,6 @@ namespace makesprite {
 
         private void BuildIndexedFrame(ConversionInfo convert, Sprite.Frame frame, System.Drawing.Color[] canvas, Rectangle crop) {
             Sprite? sprite = convert.Input;
-            int canvasSize = sprite.Width * sprite.Height;
-
-            Rectangle[]? frameHitboxes = convert.frameHitboxes.Last();
 
             for (int l = 0; l < frame.PixelData.Count; l++) {
                 Sprite.Layer layer = sprite.Layers[l];
@@ -551,51 +440,34 @@ namespace makesprite {
                     continue;
                 }
 
-                bool isHitboxLayer = layer.IsHitbox;
+                for (int y = 0; y < frame.Height; y++) {
+                    for (int x = 0; x < frame.Width; x++) {
+                        int px = frame.SheetX + x;
+                        int py = frame.SheetY + y;
 
-                if (layer.IsHitbox) {
-                    if (frameHitboxes == null) {
-                        continue;
-                    }
-
-                    int hitboxIndex = convert.HitboxLayers.IndexOf(l);
-
-                    for (int p = 0; p < canvasSize; p++) {
+                        int p = px + (py * frame.PixelDataWidth);
                         uint index = frame.PixelData[l][p];
                         if (index == (uint)sprite.TransparentPaletteIndex) {
                             continue;
                         }
 
-                        int px = p % sprite.Width;
-                        int py = p / sprite.Width;
-                        AddHitbox(frameHitboxes, hitboxIndex, px, py, sprite.Width, sprite.Height);
-                    }
-                }
-                else {
-                    for (int p = 0; p < canvasSize; p++) {
-                        uint index = frame.PixelData[l][p];
-                        if (index == (uint)sprite.TransparentPaletteIndex) {
-                            continue;
-                        }
-
+                        p = x + (y * frame.Width);
                         canvas[p] = System.Drawing.Color.FromArgb((int)index, 0, 0);
 
-                        int px = p % sprite.Width;
-                        int py = p / sprite.Width;
-                        crop.X = Math.Min(crop.X, px);
-                        crop.Y = Math.Min(crop.Y, py);
-                        crop.Width = Math.Max(crop.Width, px);
-                        crop.Height = Math.Max(crop.Height, py);
+                        crop.X = Math.Min(crop.X, x);
+                        crop.Y = Math.Min(crop.Y, y);
+                        crop.Width = Math.Max(crop.Width, x);
+                        crop.Height = Math.Max(crop.Height, y);
                     }
                 }
             }
         }
 
-        private Color[]? BuildPalette(uint[] asePalette) {
-            Color[] palette = new Color[asePalette.Length];
+        private Color[]? BuildPalette(uint[] srcPalette) {
+            Color[] palette = new Color[srcPalette.Length];
 
             for (int i = 0; i < palette.Length; i++) {
-                uint argb = asePalette[i];
+                uint argb = srcPalette[i];
                 int alpha = (int)((argb & 0xFF000000) >> 24);
                 int blue = (int)((argb & 0xFF0000) >> 16);
                 int green = (int)((argb & 0xFF00) >> 8);
@@ -617,11 +489,11 @@ namespace makesprite {
                 Color[]? palette = null;
                 Sprite firstSprite = conversionInfos[0].Input;
                 if (All8Bpp && firstSprite.Palette != null) {
-                    uint[] asePalette = firstSprite.Palette;
+                    uint[] firstPalette = firstSprite.Palette;
 
-                    text += ", " + asePalette.Length + " colors";
+                    text += ", " + firstPalette.Length + " colors";
 
-                    palette = BuildPalette(asePalette);
+                    palette = BuildPalette(firstPalette);
                 }
 
                 Program.LogVerbose(text);
@@ -641,7 +513,6 @@ namespace makesprite {
                 ConversionInfo convert = conversionInfos[a];
                 Sprite sprite = convert.Input;
 
-                int canvasSize = sprite.Width * sprite.Height;
                 int bytesPerPixel = All8Bpp ? 1 : 4;
 
                 for (int i = 0; i < convert.frameMap.Count; i++) {
@@ -652,6 +523,10 @@ namespace makesprite {
                     if (addedBoxID.ContainsKey(uniqueFrameIndex)) {
                         continue;
                     }
+
+                    int frameWidth = convert.frameSizes[i].X;
+                    int frameHeight = convert.frameSizes[i].Y;
+                    int canvasSize = frameWidth * frameHeight;
 
                     SpritesheetImage sheet = spritesheets[boxx.PackageID];
                     byte[] bytes = sheet.Data;
@@ -664,8 +539,8 @@ namespace makesprite {
                                 continue;
                             }
 
-                            int px = p % sprite.Width;
-                            int py = p / sprite.Width;
+                            int px = p % frameWidth;
+                            int py = p / frameWidth;
 
                             px -= crop.X;
                             py -= crop.Y;
@@ -683,8 +558,8 @@ namespace makesprite {
                                 continue;
                             }
 
-                            int px = p % sprite.Width;
-                            int py = p / sprite.Width;
+                            int px = p % frameWidth;
+                            int py = p / frameWidth;
 
                             px -= crop.X;
                             py -= crop.Y;
@@ -707,8 +582,8 @@ namespace makesprite {
                                 continue;
                             }
 
-                            int px = p % sprite.Width;
-                            int py = p / sprite.Width;
+                            int px = p % frameWidth;
+                            int py = p / frameWidth;
 
                             px -= crop.X;
                             py -= crop.Y;
@@ -795,7 +670,7 @@ namespace makesprite {
         private void GenerateSprites(List<ConversionInfo> conversionInfos, List<string> spritesheetNames, string path) {
             List<RSDKv5.Sprite> outputSprites = new List<RSDKv5.Sprite>();
             List<string> outputFilenames = new List<string>();
-            string fileExtension = Program.SPRITE_EXTENSION;
+            string fileExtension = Program.SpriteExtension;
 
             RSDKv5.Sprite currentSprite = new RSDKv5.Sprite();
 
@@ -872,15 +747,20 @@ namespace makesprite {
             List<string> spritesheetNames) {
             // Add hitboxes
             convert.HitboxStartIndex = outSprite.HitboxNames.Count;
-
-            for (int l = 0; l < convert.HitboxLayers.Count; l++) {
-                outSprite.HitboxNames.Add(convert.HitboxNames[l]);
+            for (int h = 0; h < convert.Input.HitboxNames.Count; h++) {
+                outSprite.HitboxNames.Add(convert.Input.HitboxNames[h]);
             }
 
             // Add spritesheets
             foreach (string sheet in spritesheetNames) {
                 if (SheetRelFilename != null) {
-                    outSprite.SpritesheetNames.Add(Path.Combine(SheetRelFilename, sheet));
+                    // TODO: Figure out why I needed to do this
+                    string pathStart = SheetRelFilename;
+                    if (pathStart.StartsWith("Sprites/")) {
+                        pathStart = pathStart.Substring("Sprites/".Length);
+                    }
+
+                    outSprite.SpritesheetNames.Add(Path.Combine(pathStart, sheet));
                 }
                 else if (IsInRootPath) {
                     outSprite.SpritesheetNames.Add(sheet);
@@ -920,6 +800,7 @@ namespace makesprite {
                 }
 
                 for (int f = range.Start; f <= range.End; f++) {
+                    Sprite.Frame frame = sprite.Frames[f];
                     int uniqueFrameIndex = convert.frameMap[f];
                     SpritePacker.Box boxx = Boxes[uniqueFrameIndex];
                     Rectangle crop = convert.frameCrops[f];
@@ -945,27 +826,22 @@ namespace makesprite {
                         crop.Width, crop.Height,
                         offsetX, offsetY,
                         convert.frameDuration[f],
-                        boxx.PackageID
+                        boxx.PackageID,
+                        isFont ? boxx.Rect.Width : frame.ID
                     );
 
-                    if (isFont) {
-                        fr.ID = (ushort)boxx.Rect.Width;
-                    }
-                    else if (convert.frameIsLoopPoint != null && convert.frameIsLoopPoint[f] && animEntry.LoopIndex == 0) {
-                        animEntry.LoopIndex = (byte)(f - range.Start);
+                    if (!isFont && frame.IsLoopPoint) {
+                        animEntry.LoopFrame = (byte)(f - range.Start);
                     }
 
-                    Rectangle[]? frameHitboxes = convert.frameHitboxes[f];
                     for (int h = 0; h < outSprite.HitboxNames.Count; h++) {
                         int index = h - convert.HitboxStartIndex;
-                        if (frameHitboxes != null && index >= 0 && index < frameHitboxes.Length) {
-                            fr.AddHitbox(
-                                frameHitboxes[index].X, frameHitboxes[index].Y,
-                                frameHitboxes[index].Width, frameHitboxes[index].Height
-                            );
+                        if (index >= 0 && index < frame.Hitboxes.Count) {
+                            Sprite.Hitbox hitbox = frame.Hitboxes[index];
+                            fr.AddHitbox(outSprite.HitboxNames[h], hitbox.X, hitbox.Y, hitbox.Width, hitbox.Height);
                         }
                         else {
-                            fr.AddHitbox(0, 0, 0, 0);
+                            fr.AddHitbox(outSprite.HitboxNames[h], 0, 0, 0, 0);
                         }
                     }
                 }
@@ -974,7 +850,7 @@ namespace makesprite {
                     if (tallestFrame < 0) {
                         tallestFrame = 0;
                     }
-                    animEntry.LoopIndex = (byte)tallestFrame;
+                    animEntry.LoopFrame = (byte)tallestFrame;
                 }
 
                 if (!CurrentOptions.Sequence || outSprite.Animations.Count == 0) {
@@ -994,8 +870,24 @@ namespace makesprite {
 
             // Save sprite file
             using (FileStream fs = new FileStream(filename, FileMode.Create)) {
-                using (BinaryWriter writer = new BinaryWriter(fs)) {
-                    sprite.Write(writer);
+                switch (CurrentOptions.OutputFormat) {
+                case SpriteFormat.RSDKv5:
+                    Program.LogVerbose("  Format: RSDKv5");
+                    using (BinaryWriter writer = new BinaryWriter(fs)) {
+                        sprite.Write(writer);
+                    }
+                    break;
+                case SpriteFormat.JSON:
+                    Program.LogVerbose("  Format: JSON");
+                    using (StreamWriter writer = new StreamWriter(fs)) {
+                        JsonSerializerOptions options = new JsonSerializerOptions{
+                            WriteIndented = true
+                        };
+
+                        string json = sprite.SerializeAsJSON(options);
+                        writer.Write(json);
+                    }
+                    break;
                 }
             }
         }

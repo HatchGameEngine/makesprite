@@ -6,7 +6,7 @@ namespace makesprite {
         public const int MAX_SHEET_HEIGHT = 16384;
 
         public enum SortMode {
-            ID,
+            Index,
             Area,
             Width,
             Height,
@@ -15,12 +15,12 @@ namespace makesprite {
         }
 
         public class Box {
-            public int ID;
+            public int Index;
             public int PackageID;
             public Rectangle Rect;
 
-            public Box(int id, Rectangle rect) {
-                ID = id;
+            public Box(int index, Rectangle rect) {
+                Index = index;
                 Rect = rect;
             }
         }
@@ -140,8 +140,8 @@ namespace makesprite {
             return parent.Box;
         }
 
-        public static List<Box> SortBoxesByID(List<Box> boxes) {
-            return boxes.OrderBy(o => o.ID).ToList();
+        public static List<Box> SortBoxesByIndex(List<Box> boxes) {
+            return boxes.OrderBy(o => o.Index).ToList();
         }
         public static List<Box> SortBoxesByArea(List<Box> boxes) {
             return boxes.OrderBy(o => -(o.Rect.Width * o.Rect.Height)).ToList();
@@ -160,8 +160,8 @@ namespace makesprite {
             List<Box> boxes;
 
             switch (SortBy) {
-            case SortMode.ID:
-                boxes = SortBoxesByID(boxe);
+            case SortMode.Index:
+                boxes = SortBoxesByIndex(boxe);
                 break;
             case SortMode.Area:
                 boxes = SortBoxesByArea(boxe);

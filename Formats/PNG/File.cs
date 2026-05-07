@@ -25,11 +25,9 @@ namespace PNG {
         Adam7 = 1
     };
 
-    public class File {
+    public class File : makesprite.ImageFile {
         private static byte[] Header = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
 
-        public int Width;
-        public int Height;
         public int BitDepth;
         public ColorType ColorType;
         public int BytesPerPixel;
@@ -37,17 +35,12 @@ namespace PNG {
         public byte CompressionMethod;
         public FilterType FilterType;
         public InterlaceMethod InterlaceMethod;
-        public byte[] Data;
-        public byte[]? Palette = null;
+        public byte[]? PaletteData = null;
         public byte[]? TransparencyData = null;
-        public int TransparentPaletteIndex = -1;
 
-        public File(int width, int height, int bitDepth, byte[] data, Color[]? palette) {
-            Width = width;
-            Height = height;
+        public File(int width, int height, int bitDepth, byte[] data, Color[]? palette) : base(width, height, bitDepth, data, palette) {
             BitDepth = bitDepth;
             BytesPerPixel = bitDepth / 8;
-            Data = data;
 
             if (palette != null) {
                 SetPalette(palette);
@@ -57,14 +50,15 @@ namespace PNG {
         private void SetPalette(Color[] palette) {
             bool hasTransparency = false;
 
-            Palette = new byte[palette.Length * 3];
+            Palette = palette;
+            PaletteData = new byte[palette.Length * 3];
             TransparencyData = null;
             TransparentPaletteIndex = -1;
 
             for (int i = 0; i < palette.Length; i++) {
-                Palette[(i * 3) + 0] = palette[i].R;
-                Palette[(i * 3) + 1] = palette[i].G;
-                Palette[(i * 3) + 2] = palette[i].B;
+                PaletteData[(i * 3) + 0] = palette[i].R;
+                PaletteData[(i * 3) + 1] = palette[i].G;
+                PaletteData[(i * 3) + 2] = palette[i].B;
 
                 if (palette[i].A != 0xFF) {
                     hasTransparency = true;
@@ -144,6 +138,7 @@ namespace PNG {
 
             SamplesPerPixel = GetSamplesPerPixel();
             BytesPerPixel = SamplesPerPixel * ((BitDepth + 7) / 8);
+            ColorDepth = BitDepth * SamplesPerPixel;
 
             MemoryStream pixelDataStream = new MemoryStream();
             byte[] crc = new byte[4];
@@ -166,13 +161,13 @@ namespace PNG {
                         throw new InvalidOperationException($"{headerName} length must be multiple of 3, but was {headerLength} bytes long");
                     }
 
-                    Palette = new byte[data.Length];
+                    PaletteData = new byte[data.Length];
 
                     int dataIndex = 0;
                     for (int i = 0; i < data.Length; i += 3) {
-                        Palette[dataIndex++] = data[i + 0];
-                        Palette[dataIndex++] = data[i + 1];
-                        Palette[dataIndex++] = data[i + 2];
+                        PaletteData[dataIndex++] = data[i + 0];
+                        PaletteData[dataIndex++] = data[i + 1];
+                        PaletteData[dataIndex++] = data[i + 2];
                     }
                     break;
                 case "IDAT":
@@ -276,6 +271,193 @@ namespace PNG {
             InterlaceMethod = (InterlaceMethod)data[12];
         }
 
+        public uint[] GetPixelData(out int colorDepth) {
+            uint[] pixelData = new uint[Width * Height];
+
+            long dataIndex = 0;
+
+            byte GetDownscaled16BitPixel() {
+                byte first = Data[dataIndex++];
+                byte second = Data[dataIndex++];
+
+                int us = (first << 8) + second;
+                return (byte)Math.Round((255 * us) / (double)ushort.MaxValue);
+            }
+
+            colorDepth = ColorDepth;
+
+            // Currently we only support indexed, grayscale, or RGBA in the converter.
+            // 16-bit is scaled down to 8-bit, and grayscale and RGB formats become RGBA.
+            // Since the converter would change grayscale to RGBA anyway, we just do that here.
+            if (BytesPerPixel > 1) {
+                colorDepth = 32;
+            }
+
+            switch (BytesPerPixel) {
+            case 1:
+                if (ColorType == ColorType.Indexed) {
+                    DecodePalettizedData(pixelData, Data, BitDepth);
+                    break;
+                }
+                else if (ColorType != ColorType.Grayscale) {
+                    // This shouldn't be possible
+                    throw new Exception("Invalid PNG file");
+                }
+
+                for (int p = 0; p < Width * Height; p++) {
+                    byte value = Data[dataIndex++];
+                    pixelData[p] = (uint)(value << 16 | value << 8 | value) | 0xFF000000;
+                }
+
+                colorDepth = 32;
+                break;
+            case 2:
+                if (ColorType == ColorType.Grayscale) {
+                    for (int p = 0; p < Width * Height; p++) {
+                        byte value = GetDownscaled16BitPixel();
+                        pixelData[p] = (uint)(value << 16 | value << 8 | value) | 0xFF000000;
+                    }
+                }
+                else {
+                    for (int p = 0; p < Width * Height; p++) {
+                        byte value = Data[dataIndex++];
+                        byte alpha = Data[dataIndex++];
+                        pixelData[p] = (uint)(alpha << 24 | value << 16 | value << 8 | value);
+                    }
+                }
+                break;
+            case 3:
+                for (int p = 0; p < Width * Height; p++) {
+                    byte r = Data[dataIndex++];
+                    byte g = Data[dataIndex++];
+                    byte b = Data[dataIndex++];
+                    pixelData[p] = (uint)(b << 16 | g << 8 | r) | 0xFF000000;
+                }
+                break;
+            case 4:
+                if (ColorType == ColorType.GrayscaleAlpha) {
+                    for (int p = 0; p < Width * Height; p++) {
+                        byte value = GetDownscaled16BitPixel();
+                        byte alpha = GetDownscaled16BitPixel();
+                        pixelData[p] = (uint)(alpha << 24 | value << 16 | value << 8 | value);
+                    }
+                }
+                else {
+                    for (int p = 0; p < Width * Height; p++) {
+                        byte r = Data[dataIndex++];
+                        byte g = Data[dataIndex++];
+                        byte b = Data[dataIndex++];
+                        byte a = Data[dataIndex++];
+                        pixelData[p] = (uint)(a << 24 | b << 16 | g << 8 | r);
+                    }
+                }
+                break;
+            case 6:
+                for (int p = 0; p < Width * Height; p++) {
+                    byte r = GetDownscaled16BitPixel();
+                    byte g = GetDownscaled16BitPixel();
+                    byte b = GetDownscaled16BitPixel();
+                    pixelData[p] = (uint)(b << 16 | g << 8 | r) | 0xFF000000;
+                }
+                break;
+            case 8:
+                for (int p = 0; p < Width * Height; p++) {
+                    byte r = GetDownscaled16BitPixel();
+                    byte g = GetDownscaled16BitPixel();
+                    byte b = GetDownscaled16BitPixel();
+                    byte a = GetDownscaled16BitPixel();
+                    pixelData[p] = (uint)(a << 24 | b << 16 | g << 8 | r);
+                }
+                break;
+            }
+
+            return pixelData;
+        }
+
+        private void DecodePalettizedData(uint[] pixelData, byte[] data, int bitDepth) {
+            int scanlineWidth = (((bitDepth * Width) + 15) / 8) - 1;
+
+            byte[] bitBuffer = new byte[8];
+
+            int rowsLeft = Height;
+            int scanlineIndex = 0;
+            int outIndex = 0;
+
+            while (rowsLeft > 0) {
+                int scanlineEndIndex = scanlineIndex + scanlineWidth;
+                while (scanlineIndex < scanlineEndIndex) {
+                    byte pixels = data[scanlineIndex++];
+
+                    int i = 0;
+                    for (int bitIndex = 0; bitIndex < 8; bitIndex += bitDepth) {
+                        bitBuffer[i++] = (byte)(pixels & ((1 << bitDepth) - 1));
+                        pixels >>= bitDepth;
+                    }
+                    --i;
+
+                    for (int bitIndex = 0; bitIndex < 8; bitIndex += bitDepth) {
+                        pixelData[outIndex++] = bitBuffer[i--];
+                    }
+                }
+
+                rowsLeft--;
+            }
+        }
+
+        public override uint[] GetFramePixels(int frameIndex, out int colorDepth) {
+            return GetPixelData(out colorDepth);
+        }
+
+        public override Color[]? GetFramePalette(int frameIndex) {
+            if (PaletteData == null) {
+                return null;
+            }
+
+            Color[] palette = new Color[PaletteData.Length / 3];
+
+            int palDataIndex = 0;
+            for (int p = 0; palDataIndex < PaletteData.Length; p++) {
+                byte r = PaletteData[palDataIndex++];
+                byte g = PaletteData[palDataIndex++];
+                byte b = PaletteData[palDataIndex++];
+                byte a = 0xFF;
+                if (TransparencyData != null && p < TransparencyData.Length) {
+                    a = TransparencyData[p];
+                }
+
+                palette[p] = System.Drawing.Color.FromArgb((int)a, (int)r, (int)g, (int)b);
+            }
+
+            return palette;
+        }
+
+        public override uint[]? GetFramePaletteARGB(int frameIndex) {
+            return GetPaletteDataARGB();
+        }
+
+        public uint[]? GetPaletteDataARGB() {
+            if (PaletteData == null) {
+                return null;
+            }
+
+            uint[] palette = new uint[PaletteData.Length / 3];
+
+            int palDataIndex = 0;
+            for (int p = 0; palDataIndex < PaletteData.Length; p++) {
+                byte r = PaletteData[palDataIndex++];
+                byte g = PaletteData[palDataIndex++];
+                byte b = PaletteData[palDataIndex++];
+                byte a = 0xFF;
+                if (TransparencyData != null && p < TransparencyData.Length) {
+                    a = TransparencyData[p];
+                }
+
+                palette[p] = (uint)(a << 24 | b << 16 | g << 8 | r);
+            }
+
+            return palette;
+        }
+
         public void Write(Stream outputStream) {
             int dataLength = 0;
             int rowLength = Width * BytesPerPixel;
@@ -289,8 +471,8 @@ namespace PNG {
 
             ColorType = BitDepth == 8 ? ColorType.Indexed : ColorType.TruecolorAlpha;
 
-            if (ColorType == ColorType.Indexed && Palette != null) {
-                BitDepth = Palette.Length > 16 ? 8 : 4;
+            if (ColorType == ColorType.Indexed && PaletteData != null) {
+                BitDepth = PaletteData.Length > 16 ? 8 : 4;
 
                 int samplesPerByte = BitDepth == 8 ? 1 : 2;
                 bool applyShift = samplesPerByte == 2;
@@ -348,10 +530,10 @@ namespace PNG {
             stream.WriteCRC();
 
             // Write PLTE
-            if (Palette != null) {
-                stream.WriteChunkLength(Palette.Length);
+            if (PaletteData != null) {
+                stream.WriteChunkLength(PaletteData.Length);
                 stream.WriteChunkHeader(System.Text.Encoding.ASCII.GetBytes("PLTE"));
-                stream.Write(Palette);
+                stream.Write(PaletteData);
                 stream.WriteCRC();
             }
 

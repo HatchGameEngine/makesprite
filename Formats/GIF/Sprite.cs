@@ -3,27 +3,32 @@ using System.Drawing;
 
 namespace GIF {
     public class Sprite : makesprite.Sprite {
+        private int Width;
+        private int Height;
+
         public Sprite(File file, string name, bool ignorePaletteMismatch = false) {
             Width = file.Width;
             Height = file.Height;
             ColorDepth = 8;
             TransparentPaletteIndex = file.TransparentPaletteIndex;
 
-            Color[] paletteToUse = file.Palette;
+            Color[]? paletteToUse = file.Palette;
             int numPaletteColors = file.NumPaletteColors;
             bool hasPaletteInGCT = numPaletteColors > 0;
 
             for (var f = 0; f < file.Frames.Count; f++) {
                 GIF.Frame gifFrame = file.Frames[f];
 
-                Frame fr = new Frame(this);
-                fr.Duration = (gifFrame.Delay * 600 + 999) / 1000; // ceil
+                Frame fr = new Frame(this, Width, Height);
+                fr.Duration = gifFrame.Delay * 10;
 
                 uint[] pixelData = new uint[Width * Height];
                 for (int p = 0; p < Width * Height; p++) {
                     pixelData[p] = gifFrame.Data[p];
                 }
 
+                fr.PixelDataWidth = Width;
+                fr.PixelDataHeight = Height;
                 fr.PixelData.Add(pixelData);
 
                 Frames.Add(fr);
@@ -47,12 +52,14 @@ namespace GIF {
 
             Palette = new uint[numPaletteColors];
 
-            for (int p = 0; p < numPaletteColors; p++) {
-                byte r = paletteToUse[p].R;
-                byte g = paletteToUse[p].G;
-                byte b = paletteToUse[p].B;
-                byte a = paletteToUse[p].A;
-                Palette[p] = (uint)(a << 24 | b << 16 | g << 8 | r);
+            if (paletteToUse != null) {
+                for (int p = 0; p < numPaletteColors; p++) {
+                    byte r = paletteToUse[p].R;
+                    byte g = paletteToUse[p].G;
+                    byte b = paletteToUse[p].B;
+                    byte a = paletteToUse[p].A;
+                    Palette[p] = (uint)(a << 24 | b << 16 | g << 8 | r);
+                }
             }
 
             // Because a spritesheet can only have a single palette, we verify
@@ -68,7 +75,7 @@ namespace GIF {
                         continue;
                     }
 
-                    if (gifFrame.Palette.Length != paletteToUse.Length) {
+                    if (paletteToUse != null && gifFrame.Palette.Length != paletteToUse.Length) {
                         makeNonPalettized = true;
                         break;
                     }
@@ -80,7 +87,7 @@ namespace GIF {
                 }
             }
 
-            if (makeNonPalettized) {
+            if (makeNonPalettized && paletteToUse != null) {
                 makesprite.Program.Warning("GIF had unique palettes per frame. Making the sprite non-palettized.");
 
                 MakeNonPalettized(file, paletteToUse);

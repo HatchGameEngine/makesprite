@@ -14,13 +14,9 @@ namespace GIF {
         }
     };
 
-    public class File {
-        public ushort Width;
-        public ushort Height;
+    public class File : makesprite.ImageFile {
         public List<Frame> Frames = new List<Frame>();
-        public byte TransparentPaletteIndex;
         public ushort Delay;
-        public Color[] Palette = new Color[256];
         public ushort NumPaletteColors = 0;
 
         private class CodeTableEntry {
@@ -66,7 +62,7 @@ namespace GIF {
             Height = reader.ReadUInt16();
 
             byte logicalScreenDesc = reader.ReadByte();
-            TransparentPaletteIndex = reader.ReadByte();
+            TransparentPaletteIndex = (int)reader.ReadByte();
             reader.BaseStream.Seek(1, SeekOrigin.Current);
 
             byte colorBitDepth = (byte)(((logicalScreenDesc & 0x70) >> 4) + 1);
@@ -79,6 +75,8 @@ namespace GIF {
             byte[] canvas = new byte[canvasSize];
 
             // Load palette
+            Palette = new Color[256];
+
             for (int p = 0; p < NumPaletteColors; p++) {
                 int red = reader.ReadByte();
                 int green = reader.ReadByte();
@@ -103,7 +101,7 @@ namespace GIF {
             ushort frameDelay = 1;
             int disposal = 0;
             bool hasTransparency = false;
-            byte transparentColorIndex = TransparentPaletteIndex;
+            byte transparentColorIndex = (byte)TransparentPaletteIndex;
 
             // Get frame
             byte type = reader.ReadByte();
@@ -324,7 +322,7 @@ namespace GIF {
                         }
                     }
 
-                    Frame frame = new Frame(Width, Height);
+                    Frame frame = new Frame((ushort)Width, (ushort)Height);
                     frame.Palette = framePalette;
                     frame.Delay = frameDelay;
                     frame.TransparentPaletteIndex = transparentColorIndex;
@@ -365,6 +363,30 @@ namespace GIF {
             bitCacheLength -= codeSize;
 
             return result;
+        }
+
+        public override uint[] GetFramePixels(int frameIndex, out int colorDepth) {
+            GIF.Frame gifFrame = Frames[frameIndex];
+
+            uint[] pixelData = new uint[Width * Height];
+            for (int p = 0; p < Width * Height; p++) {
+                pixelData[p] = gifFrame.Data[p];
+            }
+
+            colorDepth = 8;
+
+            return pixelData;
+        }
+
+        public override Color[]? GetFramePalette(int frameIndex) {
+            GIF.Frame gifFrame = Frames[frameIndex];
+            Color[]? paletteToUse = Palette;
+
+            if (NumPaletteColors == 0 && gifFrame.Palette != null) {
+                paletteToUse = gifFrame.Palette;
+            }
+
+            return paletteToUse;
         }
     }
 }
