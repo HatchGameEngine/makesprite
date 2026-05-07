@@ -131,14 +131,14 @@ namespace makesprite {
                 stream.Seek(0, SeekOrigin.Begin);
 
                 // Detect RSDKv5 sprite
-                if (RSDKv5.Sprite.IsValidFile(stream)) {
+                if (Hatch.Sprite.IsValidRSDKv5File(stream)) {
                     format = "RSDKv5 sprite";
 
                     stream.Seek(0, SeekOrigin.Begin);
 
-                    RSDKv5.Sprite sprite = new RSDKv5.Sprite();
+                    Hatch.Sprite sprite = new Hatch.Sprite();
                     sprite.Framerate = ConverterOptions.Framerate;
-                    sprite.Read(stream);
+                    sprite.ReadRSDKv5(stream);
                     return sprite.ToIntermediateSprite(filename);
                 }
                 stream.Seek(0, SeekOrigin.Begin);
@@ -172,7 +172,7 @@ namespace makesprite {
                     if (IsJSON(json)) {
                         format = "JSON";
 
-                        return RSDKv5.Sprite.DeserializeFromJSON(json, filename);
+                        return Hatch.Sprite.DeserializeFromJSON(json, filename);
                     }
                 }
             }

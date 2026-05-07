@@ -6,7 +6,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Hatch;
-using RSDKv5;
 
 namespace makesprite {
     public class Converter {
@@ -718,11 +717,11 @@ namespace makesprite {
         }
 
         private void GenerateSprites(List<ConversionInfo> conversionInfos, List<string> outputFilenames, List<string> spritesheetNames) {
-            List<RSDKv5.Sprite> outputSprites = new List<RSDKv5.Sprite>();
+            List<Hatch.Sprite> outputSprites = new List<Hatch.Sprite>();
 
             int framerate = CurrentOptions.ExportFramerate;
 
-            RSDKv5.Sprite currentSprite = new RSDKv5.Sprite();
+            Hatch.Sprite currentSprite = new Hatch.Sprite();
             currentSprite.Framerate = framerate;
 
             if (CurrentOptions.SplitBy == SplitMode.None) {
@@ -748,13 +747,13 @@ namespace makesprite {
                     sourceSprite.AnimRanges.Add(range);
                 }
 
-                PrepareRSDKSprite(currentSprite, info, spritesheetNames);
+                PrepareHatchSprite(currentSprite, info, spritesheetNames);
 
                 if (CurrentOptions.SplitBy != SplitMode.None) {
                     outputSprites.Add(currentSprite);
 
                     if (a + 1 < conversionInfos.Count) {
-                        currentSprite = new RSDKv5.Sprite();
+                        currentSprite = new Hatch.Sprite();
                         currentSprite.Framerate = framerate;
                     }
                 }
@@ -774,16 +773,16 @@ namespace makesprite {
                     currentSprite = outputSprites[a];
                 }
 
-                AddAnimationsToRSDKSprite(currentSprite, info);
+                AddAnimationsToHatchSprite(currentSprite, info);
             }
 
             // Save the sprites
             for (int i = 0; i < outputSprites.Count; i++) {
-                SaveRSDKSpriteFile(outputSprites[i], outputFilenames[i]);
+                SaveHatchSpriteFile(outputSprites[i], outputFilenames[i]);
             }
         }
 
-        private void PrepareRSDKSprite(RSDKv5.Sprite outSprite,
+        private void PrepareHatchSprite(Hatch.Sprite outSprite,
             ConversionInfo convert,
             List<string> spritesheetNames) {
             // Add hitboxes
@@ -812,7 +811,7 @@ namespace makesprite {
             }
         }
 
-        private void AddAnimationsToRSDKSprite(RSDKv5.Sprite outSprite, ConversionInfo convert) {
+        private void AddAnimationsToHatchSprite(Hatch.Sprite outSprite, ConversionInfo convert) {
             Sprite sprite = convert.Input;
 
             int tallestFrame = -65535;
@@ -828,12 +827,12 @@ namespace makesprite {
                     isFont = true;
                 }
 
-                RSDKv5.Sprite.Animation animEntry;
+                Hatch.Sprite.Animation animEntry;
                 if (CurrentOptions.Sequence && outSprite.Animations.Count > 0) {
                     animEntry = outSprite.Animations[0];
                 }
                 else {
-                    animEntry = new RSDKv5.Sprite.Animation(rangeName);
+                    animEntry = new Hatch.Sprite.Animation(rangeName);
 
                     if (isFont) {
                         animEntry.Speed = 0;
@@ -862,7 +861,7 @@ namespace makesprite {
                         }
                     }
 
-                    RSDKv5.Sprite.Animation.Frame fr = animEntry.AddFrame(
+                    Hatch.Sprite.Animation.Frame fr = animEntry.AddFrame(
                         boxx.Rect.X, boxx.Rect.Y,
                         crop.Width, crop.Height,
                         offsetX, offsetY,
@@ -900,7 +899,7 @@ namespace makesprite {
             }
         }
 
-        private void SaveRSDKSpriteFile(RSDKv5.Sprite sprite, string filename) {
+        private void SaveHatchSpriteFile(Hatch.Sprite sprite, string filename) {
             Program.LogVerbose("Saving sprite " + filename);
 
             // If the path doesn't exist, create it.
@@ -915,13 +914,13 @@ namespace makesprite {
                 case SpriteFormat.RSDKv5:
                     Program.LogVerbose("  Format: RSDKv5");
                     using (BinaryWriter writer = new BinaryWriter(fs)) {
-                        sprite.Write(writer);
+                        sprite.WriteRSDKv5(writer);
                     }
                     break;
                 case SpriteFormat.JSON:
                     Program.LogVerbose("  Format: JSON");
                     using (StreamWriter writer = new StreamWriter(fs)) {
-                        JsonSerializerOptions options = RSDKv5.Sprite.GetSerializerOptions();
+                        JsonSerializerOptions options = Hatch.Sprite.GetSerializerOptions();
                         string json = sprite.SerializeAsJSON(options);
                         writer.Write(json);
                     }
