@@ -30,7 +30,7 @@ makesprite -i font.ase --sheet-path "fonts/" -f
 ### Options
 - -i, --input: A list of files to convert.
 - -o, --output: The name of the output. This option also defines the name of the output spritesheets. If splitting by files, this option only defines the name of the output spritesheets, and the output sprites are named after the input file names. If splitting by groups, the output sprites are named after the group names, prefixed by the name passed to this option.
-- -f, --format: The format of the output sprite. Accepted options:
+- --format: The format of the output sprites. Accepted options:
   - rsdkv5: Export as a RSDKv5 sprite.
   - json: Export as JSON.
   The default is 'rsdkv5'.
@@ -63,6 +63,7 @@ makesprite -i font.ase --sheet-path "fonts/" -f
 - --depalettize: Save spritesheets as RGBA.
 - --no-sheets: Don't export spritesheets.
 - --no-sprites: Don't export sprites.
-- -f, --font: Output a font sprite.
-- -h, --help: Show the usage text and exit.
+- --font: Output a font sprite.
+- --overwrite: Replace files that already exist.
 - --verbose: Verbose output.
+- -h, --help: Show the usage text and exit.

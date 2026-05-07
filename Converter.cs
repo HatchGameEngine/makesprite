@@ -43,6 +43,7 @@ namespace makesprite {
 
         public class Options {
             public SpriteFormat OutputFormat = SpriteFormat.RSDKv5;
+            public string SpriteExtension = "";
             public bool SaveSprites = true;
             public bool SaveSheets = true;
             public bool SavePalettes = false;
@@ -60,6 +61,7 @@ namespace makesprite {
             public bool Sequence = false;
             public bool UseRDSKCompatibleSheetPaths = false;
             public bool IsFont = false;
+            public bool CanOverwrite = false;
             public bool Verbose = false;
         }
 
@@ -82,8 +84,6 @@ namespace makesprite {
                 Console.WriteLine("No sprites to convert");
                 return false;
             }
-
-            bool singleAnim = sprites.Count == 1;
 
             List<ConversionInfo> conversionInfos = new List<ConversionInfo>();
 
@@ -111,13 +111,7 @@ namespace makesprite {
                 OutFilenamePath = outputFilename;
             }
 
-            string outputSpriteFilename;
-            if (singleAnim || CurrentOptions.SplitBy == SplitMode.None) {
-                outputSpriteFilename = OutFilenamePath;
-            }
-            else {
-                outputSpriteFilename = conversionInfos[0].Filename;
-            }
+            List<string> outputFilenames = GetOutputFilenames(conversionInfos);
 
             if (CurrentOptions.SheetPath != null) {
                 SheetRelFilename = CurrentOptions.SheetPath;
@@ -176,6 +170,21 @@ namespace makesprite {
             if (spritesheets.Count > 0) {
                 GetSpritesheetNames(outputFilename, spritesheets.Count, ".png", spritesheetNames);
 
+                string palettePath = "";
+                if (CurrentOptions.SavePalettes) {
+                    string filename = Path.GetFileNameWithoutExtension(outputFilename);
+                    if (sprites.Count > 1 && ParentPath != null) {
+                        filename = Path.Combine(ParentPath.FullName, filename);
+                    }
+                    filename += ".hpal";
+
+                    if (!CurrentOptions.CanOverwrite && File.Exists(filename)) {
+                        throw new InvalidOperationException("File \"" + filename + "\" already exists! Use --overwrite to replace it.");
+                    }
+
+                    palettePath = filename;
+                }
+
                 // Save spritesheets
                 if (CurrentOptions.SaveSheets) {
                     if (!SaveSpritesheets(spritesheets, spritesheetNames)) {
@@ -184,32 +193,58 @@ namespace makesprite {
                     }
                 }
 
-                // Save palettes
+                // Save palette
                 if (CurrentOptions.SavePalettes) {
-                    string filename = Path.GetFileNameWithoutExtension(outputFilename);
-                    if (!singleAnim && ParentPath != null) {
-                        filename = Path.Combine(ParentPath.FullName, filename);
-                    }
-                    filename += ".hpal";
-
                     Color[]? palette = spritesheets[0].Palette;
                     if (palette != null) {
-                        SavePalette(palette, filename);
+                        SavePalette(palette, palettePath);
                     }
                     else {
-                        Program.Warning("No palette in spritesheet. Did not export to " + filename);
+                        Program.Warning("No palette in spritesheet. Did not export to " + palettePath);
                     }
                 }
             }
 
             // Create sprite files or file
             if (CurrentOptions.SaveSprites) {
-                GenerateSprites(conversionInfos, spritesheetNames, outputSpriteFilename);
+                GenerateSprites(conversionInfos, outputFilenames, spritesheetNames);
             }
 
             Program.LogVerbose("Converted " + sprites.Count + " sprite(s)");
 
             return true;
+        }
+
+        private List<string> GetOutputFilenames(List<ConversionInfo> conversionInfos) {
+            List<string> outputFilenames = new List<string>();
+
+            bool singleAnim = conversionInfos.Count == 1;
+
+            string basePath;
+            if (singleAnim || CurrentOptions.SplitBy == SplitMode.None) {
+                basePath = OutFilenamePath;
+            }
+            else {
+                basePath = conversionInfos[0].Filename;
+            }
+
+            for (int a = 0; a < conversionInfos.Count; a++) {
+                string filename;
+                if (CurrentOptions.SplitBy == SplitMode.None || CurrentOptions.SplitBy != SplitMode.Groups && singleAnim) {
+                    filename = GetExportedFilename(basePath, CurrentOptions.SpriteExtension, singleAnim);
+                }
+                else {
+                    filename = GetExportedFilename(conversionInfos[a].Filename, CurrentOptions.SpriteExtension, singleAnim);
+                }
+
+                if (!CurrentOptions.CanOverwrite && File.Exists(filename)) {
+                    throw new InvalidOperationException("File \"" + filename + "\" already exists! Use --overwrite to replace it.");
+                }
+
+                outputFilenames.Add(filename);
+            }
+
+            return outputFilenames;
         }
 
         private string GetExportedFilename(string filename, string fileExtension, bool singleAnim) {
@@ -624,23 +659,35 @@ namespace makesprite {
         }
 
         private bool SaveSpritesheets(List<SpritesheetImage> spritesheets, List<string> spritesheetNames) {
-            for (int i = 0; i < spritesheets.Count; i++) {
-                string outSheetFilename = spritesheetNames[i];
+            List<string> paths = new List<string>();
+
+            for (int i = 0; i < spritesheetNames.Count; i++) {
+                string filename = spritesheetNames[i];
                 if (ParentPath != null) {
-                    outSheetFilename = Path.Combine(ParentPath.FullName, outSheetFilename);
+                    filename = Path.Combine(ParentPath.FullName, filename);
                 }
 
-                Program.LogVerbose("Saving spritesheet " + outSheetFilename);
+                if (!CurrentOptions.CanOverwrite && File.Exists(filename)) {
+                    throw new InvalidOperationException("File \"" + filename + "\" already exists! Use --overwrite to replace it.");
+                }
+
+                paths.Add(filename);
+            }
+
+            for (int i = 0; i < spritesheets.Count; i++) {
+                string filename = paths[i];
+
+                Program.LogVerbose("Saving spritesheet " + filename);
 
                 // If the path doesn't exist, create it.
-                string? directoryPath = Path.GetDirectoryName(outSheetFilename);
+                string? directoryPath = Path.GetDirectoryName(filename);
                 if (directoryPath != null && directoryPath != "" && !Directory.Exists(directoryPath)) {
                     Directory.CreateDirectory(directoryPath);
                 }
 
                 SpritesheetImage sheet = spritesheets[i];
                 PNG.File png = new PNG.File(sheet.Width, sheet.Height, sheet.ColorDepth, sheet.Data, sheet.Palette);
-                using (FileStream fs = new FileStream(outSheetFilename, FileMode.Create)) {
+                using (FileStream fs = new FileStream(filename, FileMode.Create)) {
                     using (BinaryWriter writer = new BinaryWriter(fs)) {
                         png.Write(writer);
                     }
@@ -667,32 +714,20 @@ namespace makesprite {
             }
         }
 
-        private void GenerateSprites(List<ConversionInfo> conversionInfos, List<string> spritesheetNames, string path) {
+        private void GenerateSprites(List<ConversionInfo> conversionInfos, List<string> outputFilenames, List<string> spritesheetNames) {
             List<RSDKv5.Sprite> outputSprites = new List<RSDKv5.Sprite>();
-            List<string> outputFilenames = new List<string>();
-            string fileExtension = Program.SpriteExtension;
 
             RSDKv5.Sprite currentSprite = new RSDKv5.Sprite();
-
             if (CurrentOptions.SplitBy == SplitMode.None) {
                 outputSprites.Add(currentSprite);
             }
-
-            bool singleAnim = conversionInfos.Count == 1;
 
             // Prepare the sprites
             for (int a = 0; a < conversionInfos.Count; a++) {
                 ConversionInfo info = conversionInfos[a];
                 Sprite sourceSprite = info.Input;
 
-                string filename;
-                if (CurrentOptions.SplitBy == SplitMode.None || CurrentOptions.SplitBy != SplitMode.Groups && singleAnim) {
-                    filename = GetExportedFilename(path, fileExtension, singleAnim);
-                }
-                else {
-                    filename = GetExportedFilename(info.Filename, fileExtension, singleAnim);
-                }
-
+                string filename = outputFilenames[a];
                 if (sourceSprite.Frames.Count == 0) {
                     Console.WriteLine("No frames for sprite " + filename);
                     continue;
@@ -705,8 +740,6 @@ namespace makesprite {
                     Sprite.AnimRange range = new Sprite.AnimRange("Animation", 0, sourceSprite.Frames.Count - 1, 0);
                     sourceSprite.AnimRanges.Add(range);
                 }
-
-                outputFilenames.Add(filename);
 
                 PrepareRSDKSprite(currentSprite, info, spritesheetNames);
 

@@ -8,7 +8,6 @@ namespace makesprite {
         private static List<string> InputFiles = new List<string>();
 
         private static string OutputFilename = "";
-        public static string SpriteExtension = "";
 
         public static Converter.Options ConverterOptions = new Converter.Options();
 
@@ -40,10 +39,10 @@ namespace makesprite {
 
             switch (ConverterOptions.OutputFormat) {
             case Converter.SpriteFormat.RSDKv5:
-                SpriteExtension = ".bin";
+                ConverterOptions.SpriteExtension = ".bin";
                 break;
             case Converter.SpriteFormat.JSON:
-                SpriteExtension = ".json";
+                ConverterOptions.SpriteExtension = ".json";
                 break;
             }
 
@@ -55,18 +54,24 @@ namespace makesprite {
             string outFilename = OutputFilename;
             if (outFilename == "") {
                 outFilename = Path.GetFileNameWithoutExtension(InputFiles[0]);
-                outFilename += SpriteExtension;
+                outFilename += ConverterOptions.SpriteExtension;
             }
 
-            if (ConverterOptions.SplitBy == Converter.SplitMode.Groups) {
-                if (!ConvertGroupedSprites(converter, sprites, InputFiles, outFilename)) {
-                    return 1;
+            try {
+                if (ConverterOptions.SplitBy == Converter.SplitMode.Groups) {
+                    if (!ConvertGroupedSprites(converter, sprites, InputFiles, outFilename)) {
+                        return 1;
+                    }
+                }
+                else {
+                    if (!converter.Convert(sprites, InputFiles, outFilename)) {
+                        return 1;
+                    }
                 }
             }
-            else {
-                if (!converter.Convert(sprites, InputFiles, outFilename)) {
-                    return 1;
-                }
+            catch (InvalidOperationException ex) {
+                Console.WriteLine(ex.Message);
+                return 1;
             }
 
             return 0;
@@ -184,7 +189,7 @@ namespace makesprite {
                 string outFilename;
                 if (OutputFilename == "") {
                     outFilename = Path.GetFileNameWithoutExtension(filenames[i]);
-                    outFilename += SpriteExtension;
+                    outFilename += ConverterOptions.SpriteExtension;
                 }
                 else {
                     outFilename = OutputFilename;
@@ -286,6 +291,12 @@ Options:
                              groups, the output sprites are named after the
                              group names, prefixed by the argument passed to
                              this option.
+  --format                   The format of the output sprites.
+                             Accepted options:
+                               - rsdkv5: Export as a RSDKv5 sprite.
+                               - json: Export as JSON.
+                             The default is 'rsdkv5'.
+  --font                     Output a font sprite.
   --sheet-path               The parent path to use for the spritesheet names.
                              This affects the paths written to the sprite, not
                              where the spritesheet images are exported.
@@ -327,13 +338,17 @@ Options:
   --depalettize              Save spritesheets as RGBA.
   --no-sheets                Don't export spritesheets.
   --no-sprites               Don't export sprites.
-  -f, --font                 Output a font sprite.
+  --overwrite                Replace files that already exist.
+  --verbose                  Verbose output.
   -h, --help                 Show this message and exit.
 """);
         }
 
         static bool ParseNoArgOption(string option) {
             switch (option) {
+                case "--font":
+                    ConverterOptions.IsFont = true;
+                    return true;
                 case "--no-offsets":
                     ConverterOptions.NoOffsets = true;
                     return true;
@@ -367,12 +382,11 @@ Options:
                 case "--no-sprites":
                     ConverterOptions.SaveSprites = false;
                     return true;
-                case "--font":
-                case "-f":
-                    ConverterOptions.IsFont = true;
-                    return true;
                 case "--verbose":
                     ConverterOptions.Verbose = true;
+                    return true;
+                case "--overwrite":
+                    ConverterOptions.CanOverwrite = true;
                     return true;
                 default:
                     return false;
