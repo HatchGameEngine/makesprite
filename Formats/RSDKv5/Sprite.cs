@@ -140,7 +140,10 @@ namespace RSDKv5 {
             // Add spritesheets
             JsonArray spritesheets = new JsonArray();
             for (int i = 0; i < SpritesheetNames.Count; i++) {
-                spritesheets.Add(SpritesheetNames[i]);
+                spritesheets.Add(new System.Text.Json.Nodes.JsonObject {
+                    ["path"] = SpritesheetNames[i],
+                    ["type"] = "image/png"
+                });
             }
             json.Add("spritesheets", spritesheets);
 
@@ -289,12 +292,11 @@ namespace RSDKv5 {
                 }
 
                 for (int i = 0; i < spritesheets.GetArrayLength(); i++) {
-                    var sheetPath = spritesheets[i];
-                    if (sheetPath.ValueKind != JsonValueKind.String) {
-                        throw new Exception("Expected spritesheet path to be string but was " + sheetPath.ValueKind + " instead");
-                    }
+                    var sheetEntry = spritesheets[i];
 
-                    sprite.SpritesheetNames.Add(sheetPath.ToString());
+                    string sheetPath = GetString(sheetEntry, "path");
+
+                    sprite.SpritesheetNames.Add(sheetPath);
                 }
             }
 
