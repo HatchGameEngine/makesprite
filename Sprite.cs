@@ -12,6 +12,13 @@ namespace makesprite {
         public List<string> HitboxNames = new List<string>();
         public uint[]? Palette = null;
 
+        public enum AnimationDirection {
+            Forward,
+            Reverse,
+            PingPong,
+            PingPongReverse
+        }
+
         public Sprite Copy() {
             Sprite copy = new Sprite();
             copy.ColorDepth = ColorDepth;
@@ -167,13 +174,13 @@ namespace makesprite {
             public string Name;
             public int Start;
             public int End;
-            public int Type;
+            public AnimationDirection Direction;
 
-            public AnimRange(string name, int start, int end, int type) {
+            public AnimRange(string name, int start, int end, AnimationDirection direction) {
                 Name = name;
                 Start = start;
                 End = end;
-                Type = type;
+                Direction = direction;
             }
         }
 

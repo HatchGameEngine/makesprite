@@ -13,6 +13,17 @@ namespace Hatch {
 
         public const int BASE_FRAMERATE = 60;
 
+        public enum AnimationDirection {
+            Forward,
+            Reverse,
+
+            [JsonStringEnumMemberName("ping-pong")]
+            PingPong,
+
+            [JsonStringEnumMemberName("ping-pong-reverse")]
+            PingPongReverse
+        };
+
         public enum RotationStyle {
             None,
             Full,
@@ -142,7 +153,7 @@ namespace Hatch {
                 makesprite.Sprite.AnimRange animRange = new makesprite.Sprite.AnimRange(
                     anim.Name,
                     numFrames, numFrames + (anim.Frames.Count - 1),
-                    0
+                    makesprite.Sprite.AnimationDirection.Forward
                 );
 
                 sprite.AnimRanges.Add(animRange);
@@ -447,6 +458,11 @@ namespace Hatch {
             [JsonPropertyName("loopFrame")]
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
             public byte LoopFrame = 0;
+
+            [JsonInclude]
+            [JsonPropertyName("direction")]
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public AnimationDirection Direction = AnimationDirection.Forward;
 
             [JsonInclude]
             [JsonPropertyName("rotationStyle")]

@@ -8,9 +8,10 @@
   - `type`: A string. The type of the spritesheet file. Must be a media type (MIME type). Required.
 - `animations`: An array. Contains the animations. Required.
   - `name`: A string. The name of the animation. Required.
-  - `speed`: An integer. The speed of the animation. If omitted, assume this is `1`.
-  - `loopFrame`: An integer. The loop frame index of the animation. If omitted, assume this is `0`.
-  - `rotationStyle`: An enum. Must be one of the following: `"none"`, `"full"`, `"45-degrees"`, `"90-degrees"`, `"180-degrees"`, `"static-frames"`. If omitted, assume this is `full`.
+  - `speed`: An integer. The speed. If omitted, assume this is `1`.
+  - `loopFrame`: An integer. The loop frame index. If omitted, assume this is `0`.
+  - `direction`: An enum. The animation direction. Must be one of the following: `"forward"`, `"reverse"`, `"ping-pong"`, `"ping-pong-reverse"`. If omitted, assume this is `"forward"`.
+  - `rotationStyle`: An enum. The rotation style. Must be one of the following: `"none"`, `"full"`, `"45-degrees"`, `"90-degrees"`, `"180-degrees"`, `"static-frames"`. If omitted, assume this is `"full"`.
   - `frames`: An array. Contains the frames. Required.
     - `sheetX`: An integer. The X position in the spritesheet where the frame starts.
     - `sheetY`: An integer. The Y position in the spritesheet where the frame starts.

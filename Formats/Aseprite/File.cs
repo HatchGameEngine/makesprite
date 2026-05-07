@@ -346,10 +346,7 @@ namespace Aseprite {
             for (ushort t = 0; t < tagCount; t++) {
                 ushort frameStart = reader.ReadUInt16();
                 ushort frameEnd = reader.ReadUInt16();
-                byte loopAnimDirection = reader.ReadByte();
-                // 0 - Forward
-                // 1 - Reverse
-                // 2 - Ping-pong
+                byte direction = reader.ReadByte();
                 reader.BaseStream.Seek(8, SeekOrigin.Current);
 
                 byte r = reader.ReadByte();
@@ -359,7 +356,7 @@ namespace Aseprite {
 
                 string tagName = ReadString(reader);
 
-                sprite.AnimRanges.Add(new Sprite.AnimRange(tagName, frameStart, frameEnd, loopAnimDirection));
+                sprite.AnimRanges.Add(new Sprite.AnimRange(tagName, frameStart, frameEnd, (AnimationDirection)direction));
             }
         }
 

@@ -46,6 +46,14 @@
           "loopFrame": {
             "type": "integer"
           },
+          "direction": {
+            "enum": [
+              "forward",
+              "reverse",
+              "ping-pong",
+              "ping-pong-reverse"
+            ]
+          },
           "rotationStyle": {
             "enum": [
               "none",

@@ -745,7 +745,7 @@ namespace makesprite {
                     sourceSprite.AnimRanges.Add(range);
                 }
 
-                PrepareHatchSprite(currentSprite, info, spritesheetNames);
+                PrepareSprite(currentSprite, info, spritesheetNames);
 
                 if (CurrentOptions.SplitBy != SplitMode.None) {
                     outputSprites.Add(currentSprite);
@@ -771,16 +771,16 @@ namespace makesprite {
                     currentSprite = outputSprites[a];
                 }
 
-                AddAnimationsToHatchSprite(currentSprite, info);
+                AddAnimationsToSprite(currentSprite, info);
             }
 
             // Save the sprites
             for (int i = 0; i < outputSprites.Count; i++) {
-                SaveHatchSpriteFile(outputSprites[i], outputFilenames[i]);
+                SaveSpriteFile(outputSprites[i], outputFilenames[i]);
             }
         }
 
-        private void PrepareHatchSprite(Hatch.Sprite outSprite,
+        private void PrepareSprite(Hatch.Sprite outSprite,
             ConversionInfo convert,
             List<string> spritesheetNames) {
             // Add hitboxes
@@ -809,7 +809,7 @@ namespace makesprite {
             }
         }
 
-        private void AddAnimationsToHatchSprite(Hatch.Sprite outSprite, ConversionInfo convert) {
+        private void AddAnimationsToSprite(Hatch.Sprite outSprite, ConversionInfo convert) {
             Sprite sprite = convert.Input;
 
             int tallestFrame = -65535;
@@ -831,6 +831,7 @@ namespace makesprite {
                 }
                 else {
                     animEntry = new Hatch.Sprite.Animation(rangeName);
+                    animEntry.Direction = (Hatch.Sprite.AnimationDirection)range.Direction;
 
                     if (isFont) {
                         animEntry.Speed = 0;
@@ -897,7 +898,7 @@ namespace makesprite {
             }
         }
 
-        private void SaveHatchSpriteFile(Hatch.Sprite sprite, string filename) {
+        private void SaveSpriteFile(Hatch.Sprite sprite, string filename) {
             Program.LogVerbose("Saving sprite " + filename);
 
             // If the path doesn't exist, create it.
