@@ -6,15 +6,26 @@ makesprite is a tool that converts animated sprites into Hatch formats.
 
 ### Input formats
 
-- PNG image
-- GIF animation
+#### Animation formats
+- RSDKv5 animation format
+- JSON schema
 - Aseprite v1.3 file format (.ase/.aseprite)
   - Not all features are supported. If something in an .ase is not preserved during conversion, assume it's unimplemented.
 
+#### Spritesheet formats
+- PNG image
+- GIF animation
+
 ### Output formats
 
+#### Animation formats
 - RSDKv5 animation format
+- JSON schema
+
+#### Spritesheet formats
 - PNG image
+
+#### Palette formats
 - Hatch palette (.hpal)
 
 ## Usage

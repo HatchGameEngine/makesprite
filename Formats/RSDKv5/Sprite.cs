@@ -8,9 +8,18 @@ using System.Text.Json.Serialization;
 
 namespace RSDKv5 {
     public class Sprite {
+        public const uint FILE_MAGIC = 0x00525053;
+
         public List<Animation> Animations = new List<Animation>();
         public List<string> SpritesheetNames = new List<string>();
         public List<string> HitboxNames = new List<string>();
+
+        public int BaseFramerate = 60;
+
+        public void AddAnimation(Animation animation) {
+            animation.Framerate = BaseFramerate;
+            Animations.Add(animation);
+        }
 
         // Converts this sprite to a makesprite.Sprite.
         // That is, the one that Converter uses.
@@ -232,7 +241,7 @@ namespace RSDKv5 {
                 animEntry.Speed = (ushort)speed;
                 animEntry.LoopFrame = loopFrame;
                 animEntry.RotationStyle = rotationStyle;
-                sprite.Animations.Add(animEntry);
+                sprite.AddAnimation(animEntry);
 
                 JsonElement? valFrames = GetOptionalElement(animation, "frames", JsonValueKind.Array);
                 if (valFrames == null) {
@@ -303,31 +312,67 @@ namespace RSDKv5 {
             return sprite.ToIntermediateSprite(filename);
         }
 
+        public static bool IsValidFile(BinaryReader reader) {
+            uint magic = reader.ReadUInt32();
+            return magic == FILE_MAGIC;
+        }
+
+        public static bool IsValidFile(Stream stream) {
+            return IsValidFile(new BinaryReader(stream));
+        }
+
+        public void Read(Stream stream) {
+            Read(new BinaryReader(stream));
+        }
+
+        public void Read(BinaryReader reader) {
+            if (!IsValidFile(reader)) {
+                throw new Exception("Not a RSDKv5 sprite");
+            }
+
+            reader.ReadUInt32(); // Frame count. Not needed
+
+            byte numSpritesheetNames = reader.ReadByte();
+            for (int i = 0; i < numSpritesheetNames; i++) {
+                SpritesheetNames.Add(ReadString(reader));
+            }
+
+            byte numHitboxNames = reader.ReadByte();
+            for (int i = 0; i < numHitboxNames; i++) {
+                HitboxNames.Add(ReadString(reader));
+            }
+
+            ushort numAnimations = reader.ReadUInt16();
+            for (int i = 0; i < numAnimations; i++) {
+                AddAnimation(Animation.Read(this, reader));
+            }
+        }
+
         public void Write(BinaryWriter writer) {
             ushort numAnimations = (ushort)Animations.Count;
             byte numSpritesheetNames = (byte)SpritesheetNames.Count;
             byte numHitboxNames = (byte)HitboxNames.Count;
 
-            writer.Write((uint)0x00525053);
+            writer.Write(FILE_MAGIC);
 
             int frameCount = 0;
-            for (ushort i = 0; i < numAnimations; i++) {
+            for (int i = 0; i < numAnimations; i++) {
                 frameCount += Animations[i].Frames.Count;
             }
             writer.Write(frameCount);
 
             writer.Write(numSpritesheetNames);
-            for (byte i = 0; i < numSpritesheetNames; i++) {
+            for (int i = 0; i < numSpritesheetNames; i++) {
                 WriteString(writer, SpritesheetNames[i]);
             }
 
             writer.Write(numHitboxNames);
-            for (byte i = 0; i < numHitboxNames; i++) {
+            for (int i = 0; i < numHitboxNames; i++) {
                 WriteString(writer, HitboxNames[i]);
             }
 
             writer.Write(numAnimations);
-            for (ushort i = 0; i < numAnimations; i++) {
+            for (int i = 0; i < numAnimations; i++) {
                 Animations[i].Write(writer);
             }
         }
@@ -375,6 +420,22 @@ namespace RSDKv5 {
                 }
 
                 return Speed;
+            }
+
+            public static Animation Read(Sprite sprite, BinaryReader reader) {
+                string name = ReadString(reader);
+
+                Animation animation = new Animation(name);
+                ushort frameCount = reader.ReadUInt16();
+                animation.Speed = reader.ReadUInt16();
+                animation.LoopFrame = reader.ReadByte();
+                animation.RotationStyle = reader.ReadByte();
+
+                for (ushort i = 0; i < frameCount; i++) {
+                    animation.Frames.Add(Frame.Read(sprite, reader));
+                }
+
+                return animation;
             }
 
             public void Write(BinaryWriter writer) {
@@ -462,9 +523,33 @@ namespace RSDKv5 {
                     return (Duration * Framerate + 999) / 1000; // ceil
                 }
 
-                public int GetDurationInMilliseconds(int duration) {
-                    float time = (float)duration / Framerate;
+                public static int GetDurationInMilliseconds(int duration, int framerate) {
+                    float time = (float)duration / framerate;
                     return (int)(time * 1000);
+                }
+
+                public static Frame Read(Sprite sprite, BinaryReader reader) {
+                    byte spritesheetIndex = reader.ReadByte();
+                    int duration = GetDurationInMilliseconds(reader.ReadUInt16(), sprite.BaseFramerate);
+                    ushort id = reader.ReadUInt16();
+                    ushort x = reader.ReadUInt16();
+                    ushort y = reader.ReadUInt16();
+                    ushort width = reader.ReadUInt16();
+                    ushort height = reader.ReadUInt16();
+                    short offsetX = reader.ReadInt16();
+                    short offsetY = reader.ReadInt16();
+
+                    Frame frame = new Frame(x, y, width, height, offsetX, offsetY, duration, spritesheetIndex, id);
+
+                    if (sprite.HitboxNames.Count > 0) {
+                        frame.Hitboxes = new List<Hitbox>();
+
+                        for (int i = 0; i < sprite.HitboxNames.Count; i++) {
+                            frame.Hitboxes.Add(Hitbox.Read(sprite.HitboxNames[i], reader));
+                        }
+                    }
+
+                    return frame;
                 }
 
                 public void Write(BinaryWriter writer) {
@@ -515,6 +600,15 @@ namespace RSDKv5 {
                         Bottom = (short)bottom;
                     }
 
+                    public static Hitbox Read(string name, BinaryReader reader) {
+                        short left = reader.ReadInt16();
+                        short top = reader.ReadInt16();
+                        short right = reader.ReadInt16();
+                        short bottom = reader.ReadInt16();
+
+                        return new Hitbox(name, left, top, right, bottom);
+                    }
+
                     public void Write(BinaryWriter writer) {
                         writer.Write(Left);
                         writer.Write(Top);
@@ -523,6 +617,17 @@ namespace RSDKv5 {
                     }
                 }
             }
+        }
+
+        public static string ReadString(BinaryReader reader) {
+            string text = "";
+            byte length = reader.ReadByte();
+
+            for (int i = 0; i < length; i++) {
+                text += (char)reader.ReadByte();
+            }
+
+            return text;
         }
 
         public static void WriteString(BinaryWriter writer, string text) {

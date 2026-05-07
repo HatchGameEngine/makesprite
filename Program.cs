@@ -130,6 +130,18 @@ namespace makesprite {
                 }
                 stream.Seek(0, SeekOrigin.Begin);
 
+                // Detect RSDKv5 sprite
+                if (RSDKv5.Sprite.IsValidFile(stream)) {
+                    format = "RSDKv5 sprite";
+
+                    stream.Seek(0, SeekOrigin.Begin);
+
+                    RSDKv5.Sprite sprite = new RSDKv5.Sprite();
+                    sprite.Read(stream);
+                    return sprite.ToIntermediateSprite(filename);
+                }
+                stream.Seek(0, SeekOrigin.Begin);
+
                 // Detect GIF file
                 if (GIF.File.IsValid(stream)) {
                     format = "GIF";

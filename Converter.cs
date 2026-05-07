@@ -887,7 +887,7 @@ namespace makesprite {
                 }
 
                 if (!CurrentOptions.Sequence || outSprite.Animations.Count == 0) {
-                    outSprite.Animations.Add(animEntry);
+                    outSprite.AddAnimation(animEntry);
                 }
             }
         }
