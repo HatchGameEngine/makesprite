@@ -1,0 +1,27 @@
+# Version 1 Sprite Schema
+
+- `version`: An integer. The version of the schema. Must be `1`.
+- `meta`: An object. Metadata.
+  - `exporter`: A string. What exported this sprite. makesprite writes `"makesprite v1.0.0"`.
+- `spritesheets`: An array. Contains the spritesheets used by the sprite. Required.
+  - `path`: A string. The path to the spritesheet file. Required.
+  - `type`: A string. The type of the spritesheet file. Must be a media type (MIME type). Required.
+- `animations`: An array. Contains the animations. Required.
+  - `name`: A string. The name of the animation. Required.
+  - `speed`: An integer. The speed of the animation. If omitted, assume this is `1`.
+  - `loopFrame`: An integer. The loop frame index of the animation. If omitted, assume this is `0`.
+  - `rotationStyle`: An enum. Must be one of the following: `"none"`, `"full"`, `"45-degrees"`, `"90-degrees"`, `"180-degrees"`, `"static-frames"`. If omitted, assume this is `full`.
+  - `frames`: An array. Contains the frames. Required.
+    - `sheetX`: An integer. The X position in the spritesheet where the frame starts.
+    - `sheetY`: An integer. The Y position in the spritesheet where the frame starts.
+    - `width`: An integer. The width.
+    - `height`: An integer. The height.
+    - `duration`: A number. How long the frame lasts, in milliseconds. If omitted, assume this is `16.6666666667`.
+    - `spritesheetIndex`: An integer. The spritesheet index. If omitted, assume this is `0`.
+    - `id`: An integer. If omitted, assume this is `0`.
+    - `hitboxes`: An array. Contains the hitboxes.
+      - `name`: A string. The name of the hitbox. Required.
+      - `left`: An integer. The left side of the hitbox. Required.
+      - `top`: An integer. The top side of the hitbox. Required.
+      - `right`: An integer. The right side of the hitbox. Required.
+      - `bottom`: An integer. The bottom side of the hitbox. Required.
