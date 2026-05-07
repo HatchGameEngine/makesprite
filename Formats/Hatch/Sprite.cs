@@ -264,12 +264,26 @@ namespace Hatch {
                 return number;
             }
 
+            float GetOptionalDecimal(JsonElement element, string fieldName, float defaultValue) {
+                JsonElement val;
+
+                float number = defaultValue;
+
+                if (element.TryGetProperty(fieldName, out val) && !val.TryGetSingle(out number)) {
+                    throw new Exception("Expected \"" + fieldName + "\" to be decimal but was " + val.ValueKind + " instead");
+                }
+
+                return number;
+            }
+
             JsonElement animations = (JsonElement)json["animations"];
             if (animations.ValueKind != JsonValueKind.Array) {
                 throw new Exception("Expected \"animations\" to be array but was " + animations.ValueKind + " instead");
             }
 
             Sprite sprite = new Sprite();
+
+            float defaultFrameDuration = Animation.Frame.GetDurationInMilliseconds(1, BASE_FRAMERATE);
 
             for (int a = 0; a < animations.GetArrayLength(); a++) {
                 var animation = animations[a];
@@ -301,7 +315,7 @@ namespace Hatch {
                     short height = (short)GetInteger(frame, "height");
                     short offsetX = (short)GetOptionalInteger(frame, "offsetX", 0);
                     short offsetY = (short)GetOptionalInteger(frame, "offsetY", 0);
-                    short duration = (short)GetOptionalInteger(frame, "duration", 1);
+                    float duration = GetOptionalDecimal(frame, "duration", defaultFrameDuration);
                     byte spritesheetIndex = (byte)GetOptionalInteger(frame, "spritesheetIndex", 0);
                     int id = (int)GetOptionalInteger(frame, "id", 0);
 
@@ -449,7 +463,7 @@ namespace Hatch {
                 Name = name;
             }
 
-            public Frame AddFrame(int x, int y, int width, int height, int offsetX, int offsetY, int duration, int sheet, int id) {
+            public Frame AddFrame(int x, int y, int width, int height, int offsetX, int offsetY, float duration, int sheet, int id) {
                 Frame frame = new Frame(this, x, y, width, height, offsetX, offsetY, duration, sheet, id);
                 frame.Animation = this;
                 Frames.Add(frame);
@@ -520,7 +534,7 @@ namespace Hatch {
 
                 [JsonInclude]
                 [JsonPropertyName("duration")]
-                public int Duration;
+                public float Duration;
 
                 [JsonInclude]
                 [JsonPropertyName("spritesheetIndex")]
@@ -539,7 +553,7 @@ namespace Hatch {
 
                 public Animation Animation;
 
-                public Frame(Animation anim, int x, int y, int width, int height, int offsetX, int offsetY, int duration, int sheet, int id) {
+                public Frame(Animation anim, int x, int y, int width, int height, int offsetX, int offsetY, float duration, int sheet, int id) {
                     Animation = anim;
                     X = (ushort)x;
                     Y = (ushort)y;
@@ -563,17 +577,16 @@ namespace Hatch {
                 }
 
                 public int GetDurationInFrames() {
-                    return (Duration * Animation.Framerate + 999) / 1000; // ceil
+                    return (int)((Duration * Animation.Framerate + 999) / 1000); // ceil
                 }
 
-                public static int GetDurationInMilliseconds(int duration, int framerate) {
-                    float time = (float)duration / framerate;
-                    return (int)(time * 1000);
+                public static float GetDurationInMilliseconds(int duration, int framerate) {
+                    return ((float)duration / framerate) * 1000;
                 }
 
                 public static Frame ReadRSDKv5(Sprite sprite, Animation anim, BinaryReader reader) {
                     byte spritesheetIndex = reader.ReadByte();
-                    int duration = GetDurationInMilliseconds(reader.ReadUInt16(), sprite.Framerate);
+                    float duration = GetDurationInMilliseconds(reader.ReadUInt16(), sprite.Framerate);
                     ushort id = reader.ReadUInt16();
                     ushort x = reader.ReadUInt16();
                     ushort y = reader.ReadUInt16();

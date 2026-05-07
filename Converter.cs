@@ -27,7 +27,6 @@ namespace makesprite {
             public string Filename;
 
             public List<int> frameMap = new List<int>();
-            public List<int> frameDuration = new List<int>();
             public List<Rectangle> frameCrops = new List<Rectangle>();
             public List<Vector2> frameSizes = new List<Vector2>();
             public List<Vector2> frameOffsets = new List<Vector2>();
@@ -305,7 +304,6 @@ namespace makesprite {
                 convert.frameCrops.Add(crop);
                 convert.frameSheets.Add(frameCanvas);
                 convert.frameSizes.Add(new Vector2(frame.Width, frame.Height));
-                convert.frameDuration.Add(frame.Duration);
 
                 Vector2 frameSize;
                 if (CurrentOptions.TrimFrames) {
@@ -865,7 +863,7 @@ namespace makesprite {
                         boxx.Rect.X, boxx.Rect.Y,
                         crop.Width, crop.Height,
                         offsetX, offsetY,
-                        convert.frameDuration[f],
+                        frame.Duration,
                         boxx.PackageID,
                         isFont ? boxx.Rect.Width : frame.ID
                     );

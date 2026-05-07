@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "version": {
-      "type": "number"
+      "type": "integer"
     },
     "meta": {
       "type": "object",
@@ -41,10 +41,10 @@
             "type": "string"
           },
           "speed": {
-            "type": "number"
+            "type": "integer"
           },
           "loopFrame": {
-            "type": "number"
+            "type": "integer"
           },
           "rotationStyle": {
             "enum": [
@@ -62,31 +62,31 @@
               "type": "object",
               "properties": {
                 "sheetX": {
-                  "type": "number"
+                  "type": "integer"
                 },
                 "sheetY": {
-                  "type": "number"
+                  "type": "integer"
                 },
                 "width": {
-                  "type": "number"
+                  "type": "integer"
                 },
                 "height": {
-                  "type": "number"
+                  "type": "integer"
                 },
                 "offsetX": {
-                  "type": "number"
+                  "type": "integer"
                 },
                 "offsetY": {
-                  "type": "number"
+                  "type": "integer"
                 },
                 "duration": {
                   "type": "number"
                 },
                 "spritesheetIndex": {
-                  "type": "number"
+                  "type": "integer"
                 },
                 "id": {
-                  "type": "number"
+                  "type": "integer"
                 },
                 "hitboxes": {
                   "type": "array",
@@ -97,16 +97,16 @@
                         "type": "string"
                       },
                       "left": {
-                        "type": "number"
+                        "type": "integer"
                       },
                       "top": {
-                        "type": "number"
+                        "type": "integer"
                       },
                       "right": {
-                        "type": "number"
+                        "type": "integer"
                       },
                       "bottom": {
-                        "type": "number"
+                        "type": "integer"
                       }
                     },
                     "required": [

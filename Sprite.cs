@@ -252,7 +252,7 @@ namespace makesprite {
         public class Frame {
             public int Width;
             public int Height;
-            public int Duration;
+            public float Duration;
             public int SheetX;
             public int SheetY;
             public int ID;
