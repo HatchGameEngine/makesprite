@@ -40,6 +40,10 @@ namespace GIF {
                 }
             }
 
+            if (paletteToUse == null) {
+                return;
+            }
+
             Layer layer = new Layer(this);
             Layers.Add(layer);
 
@@ -52,14 +56,12 @@ namespace GIF {
 
             Palette = new uint[numPaletteColors];
 
-            if (paletteToUse != null) {
-                for (int p = 0; p < numPaletteColors; p++) {
-                    byte r = paletteToUse[p].R;
-                    byte g = paletteToUse[p].G;
-                    byte b = paletteToUse[p].B;
-                    byte a = paletteToUse[p].A;
-                    Palette[p] = (uint)(a << 24 | b << 16 | g << 8 | r);
-                }
+            for (int p = 0; p < numPaletteColors; p++) {
+                byte r = paletteToUse[p].R;
+                byte g = paletteToUse[p].G;
+                byte b = paletteToUse[p].B;
+                byte a = paletteToUse[p].A;
+                Palette[p] = (uint)(a << 24 | b << 16 | g << 8 | r);
             }
 
             // Because a spritesheet can only have a single palette, we verify
@@ -75,7 +77,7 @@ namespace GIF {
                         continue;
                     }
 
-                    if (paletteToUse != null && gifFrame.Palette.Length != paletteToUse.Length) {
+                    if (gifFrame.Palette.Length != paletteToUse.Length) {
                         makeNonPalettized = true;
                         break;
                     }
