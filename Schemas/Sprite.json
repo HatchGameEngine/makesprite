@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hatch sprite",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number"
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "exporter": {
+          "type": "string"
+        }
+      }
+    },
+    "spritesheets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "type"
+        ]
+      }
+    },
+    "animations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "speed": {
+            "type": "number"
+          },
+          "loopFrame": {
+            "type": "number"
+          },
+          "rotationStyle": {
+            "enum": [
+              "none",
+              "full",
+              "45-degrees",
+              "90-degrees",
+              "180-degrees",
+              "static-frames"
+            ]
+          },
+          "frames": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sheetX": {
+                  "type": "number"
+                },
+                "sheetY": {
+                  "type": "number"
+                },
+                "width": {
+                  "type": "number"
+                },
+                "height": {
+                  "type": "number"
+                },
+                "offsetX": {
+                  "type": "number"
+                },
+                "offsetY": {
+                  "type": "number"
+                },
+                "duration": {
+                  "type": "number"
+                },
+                "spritesheetIndex": {
+                  "type": "number"
+                },
+                "id": {
+                  "type": "number"
+                },
+                "hitboxes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "left": {
+                        "type": "number"
+                      },
+                      "top": {
+                        "type": "number"
+                      },
+                      "right": {
+                        "type": "number"
+                      },
+                      "bottom": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "left",
+                      "top",
+                      "right",
+                      "bottom"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "sheetX",
+                "sheetY",
+                "width",
+                "height"
+              ]
+            }
+          }
+        },
+        "required": [
+          "name",
+          "frames"
+        ]
+      }
+    }
+  },
+  "required": [
+    "version",
+    "animations"
+  ]
+}
