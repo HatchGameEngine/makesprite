@@ -137,6 +137,7 @@ namespace makesprite {
                     stream.Seek(0, SeekOrigin.Begin);
 
                     RSDKv5.Sprite sprite = new RSDKv5.Sprite();
+                    sprite.Framerate = ConverterOptions.Framerate;
                     sprite.Read(stream);
                     return sprite.ToIntermediateSprite(filename);
                 }
@@ -287,11 +288,13 @@ namespace makesprite {
 
         static void PrintUsage() {
             Console.WriteLine("""
-usage: makesprite -i | --input <file>... [-o | --output <path>]
-       [--sheet-path <path>] [--max-sheet-width <size>] [--max-sheet-height <size>]
+usage: makesprite -i | --input <file>... [-o | --output <path>] [--format <type>]
+       [--font] [--sheet-path <path>] [--max-sheet-width <size>] [--max-sheet-height <size>]
        [--keep-canvas-offsets] [--no-offsets] [--offset-x <amount>] [--offset-y <amount>]
-       [-s | --split-groups] [--combine-sheets] [--frame-sort <mode>]
-       [-f | --font] [-h | --help]
+       [--no-frame-trim] [--keep-duplicate-frames] [-s | --split-by] [--group-split-sheets]
+       [--sequence] [--frame-rate <amount>] [--frame-sort <mode>] [--export-palette]
+       [--ignore-palette-mismatch] [--depalettize] [--no-sheets] [--no-sprites]
+       [--overwrite] [--verbose] [-h | --help]
 
 Options:
   -i, --input <file>...      A list of files to convert.
@@ -303,7 +306,7 @@ Options:
                              groups, the output sprites are named after the
                              group names, prefixed by the argument passed to
                              this option.
-  --format                   The format of the output sprites.
+  --format <type>            The format of the output sprites.
                              Accepted options:
                                - rsdkv5: Export as a RSDKv5 sprite.
                                - json: Export as JSON.
@@ -334,6 +337,9 @@ Options:
   --group-split-sheets       Split spritesheets by groups.
   --sequence                 Treat the input files as a sequence of frames,
                              rather than separate animations.
+  --frame-rate <amount>      When importing from or exporting to a RSDKv5
+                             sprite, this option defines the frame rate. The
+                             default is 60 frames per second.
   --frame-sort <mode>        How to sort the frames in the spritesheet.
                              Accepted options:
                                - none: Don't sort.
@@ -486,6 +492,17 @@ Options:
                         Environment.Exit(1);
                         return false;
                     }
+                    return true;
+                }
+                case "--frame-rate": {
+                    string arg = GetNextArg(args, index);
+                    int framerate = ParseNumericOption(option, arg);
+                    if (framerate < 1) {
+                        Console.WriteLine("Invalid argument for " + option);
+                        Environment.Exit(1);
+                        return false;
+                    }
+                    ConverterOptions.Framerate = framerate;
                     return true;
                 }
                 case "--frame-sort": {

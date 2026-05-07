@@ -14,10 +14,10 @@ namespace RSDKv5 {
         public List<string> SpritesheetNames = new List<string>();
         public List<string> HitboxNames = new List<string>();
 
-        public int BaseFramerate = 60;
+        public int Framerate = 60;
 
         public void AddAnimation(Animation animation) {
-            animation.Framerate = BaseFramerate;
+            animation.Framerate = Framerate;
             Animations.Add(animation);
         }
 
@@ -530,7 +530,7 @@ namespace RSDKv5 {
 
                 public static Frame Read(Sprite sprite, BinaryReader reader) {
                     byte spritesheetIndex = reader.ReadByte();
-                    int duration = GetDurationInMilliseconds(reader.ReadUInt16(), sprite.BaseFramerate);
+                    int duration = GetDurationInMilliseconds(reader.ReadUInt16(), sprite.Framerate);
                     ushort id = reader.ReadUInt16();
                     ushort x = reader.ReadUInt16();
                     ushort y = reader.ReadUInt16();

@@ -56,6 +56,7 @@ namespace makesprite {
             public bool KeepCanvasOffsets = false;
             public int OffsetX = 0;
             public int OffsetY = 0;
+            public int Framerate = 60;
             public bool TrimFrames = true;
             public bool MergeDuplicateFrames = true;
             public bool Sequence = false;
@@ -718,6 +719,8 @@ namespace makesprite {
             List<RSDKv5.Sprite> outputSprites = new List<RSDKv5.Sprite>();
 
             RSDKv5.Sprite currentSprite = new RSDKv5.Sprite();
+            currentSprite.Framerate = CurrentOptions.Framerate;
+
             if (CurrentOptions.SplitBy == SplitMode.None) {
                 outputSprites.Add(currentSprite);
             }
@@ -748,6 +751,7 @@ namespace makesprite {
 
                     if (a + 1 < conversionInfos.Count) {
                         currentSprite = new RSDKv5.Sprite();
+                        currentSprite.Framerate = CurrentOptions.Framerate;
                     }
                 }
             }

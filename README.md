@@ -7,10 +7,13 @@ makesprite is a tool that converts animated sprites into Hatch formats.
 ### Input formats
 
 #### Animation formats
-- RSDKv5 animation format
+- RSDKv5 sprite format
 - JSON schema
 - Aseprite v1.3 file format (.ase/.aseprite)
   - Not all features are supported. If something in an .ase is not preserved during conversion, assume it's unimplemented.
+- PNG image
+  - APNG is not currently supported.
+- GIF animation
 
 #### Spritesheet formats
 - PNG image
@@ -19,7 +22,7 @@ makesprite is a tool that converts animated sprites into Hatch formats.
 ### Output formats
 
 #### Animation formats
-- RSDKv5 animation format
+- RSDKv5 sprite format
 - JSON schema
 
 #### Spritesheet formats
@@ -61,6 +64,7 @@ makesprite -i font.ase --sheet-path "fonts/" -f
   The default is 'none'.
 - --group-split-sheets: Split spritesheets by groups.
 - --sequence: Treat the input files as a sequence of frames, rather than separate animations.
+- --frame-rate: When importing from or exporting to a RSDKv5 sprite, this option defines the frame rate. The default is 60 frames per second.
 - --frame-sort: How to sort the frames in the spritesheet. Accepted options:
   - none: Don't sort.
   - area: Sort by the area of the frame.
