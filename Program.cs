@@ -292,9 +292,9 @@ usage: makesprite -i | --input <file>... [-o | --output <path>] [--format <type>
        [--font] [--sheet-path <path>] [--max-sheet-width <size>] [--max-sheet-height <size>]
        [--keep-canvas-offsets] [--no-offsets] [--offset-x <amount>] [--offset-y <amount>]
        [--no-frame-trim] [--keep-duplicate-frames] [-s | --split-by] [--group-split-sheets]
-       [--sequence] [--frame-rate <amount>] [--frame-sort <mode>] [--export-palette]
-       [--ignore-palette-mismatch] [--depalettize] [--no-sheets] [--no-sprites]
-       [--overwrite] [--verbose] [-h | --help]
+       [--sequence] [--import-frame-rate <fps>] [--frame-rate <fps>] [--frame-sort <mode>]
+       [--export-palette] [--ignore-palette-mismatch] [--depalettize] [--no-sheets]
+       [--no-sprites] [--overwrite] [--verbose] [-h | --help]
 
 Options:
   -i, --input <file>...      A list of files to convert.
@@ -337,9 +337,12 @@ Options:
   --group-split-sheets       Split spritesheets by groups.
   --sequence                 Treat the input files as a sequence of frames,
                              rather than separate animations.
-  --frame-rate <amount>      When importing from or exporting to a RSDKv5
-                             sprite, this option defines the frame rate. The
-                             default is 60 frames per second.
+  --import-frame-rate <fps>  Define the frame rate of imported animations that
+                             use frame rate based durations.
+                             The default is 60 frames per second.
+  --frame-rate <fps>         Define the frame rate of exported animations that
+                             use frame rate based durations.
+                             The default is 60 frames per second.
   --frame-sort <mode>        How to sort the frames in the spritesheet.
                              Accepted options:
                                - none: Don't sort.
@@ -357,7 +360,7 @@ Options:
   --no-sheets                Don't export spritesheets.
   --no-sprites               Don't export sprites.
   --overwrite                Replace files that already exist.
-  --verbose                  Verbose output.
+  --verbose                  Enable verbose output.
   -h, --help                 Show this message and exit.
 """);
         }
@@ -494,7 +497,7 @@ Options:
                     }
                     return true;
                 }
-                case "--frame-rate": {
+                case "--import-frame-rate": {
                     string arg = GetNextArg(args, index);
                     int framerate = ParseNumericOption(option, arg);
                     if (framerate < 1) {
@@ -503,6 +506,17 @@ Options:
                         return false;
                     }
                     ConverterOptions.Framerate = framerate;
+                    return true;
+                }
+                case "--frame-rate": {
+                    string arg = GetNextArg(args, index);
+                    int framerate = ParseNumericOption(option, arg);
+                    if (framerate < 1) {
+                        Console.WriteLine("Invalid argument for " + option);
+                        Environment.Exit(1);
+                        return false;
+                    }
+                    ConverterOptions.ExportFramerate = framerate;
                     return true;
                 }
                 case "--frame-sort": {

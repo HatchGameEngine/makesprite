@@ -10,11 +10,13 @@ namespace RSDKv5 {
     public class Sprite {
         public const uint FILE_MAGIC = 0x00525053;
 
+        public const int BASE_FRAMERATE = 60;
+
         public List<Animation> Animations = new List<Animation>();
         public List<string> SpritesheetNames = new List<string>();
         public List<string> HitboxNames = new List<string>();
 
-        public int Framerate = 60;
+        public int Framerate = BASE_FRAMERATE;
 
         public void AddAnimation(Animation animation) {
             animation.Framerate = Framerate;
@@ -401,15 +403,15 @@ namespace RSDKv5 {
             [JsonPropertyName("frames")]
             public List<Frame> Frames = new List<Frame>();
 
-            public int Framerate = 60;
+            public int Framerate = BASE_FRAMERATE;
 
             public Animation(string name) {
                 Name = name;
             }
 
-            public Frame AddFrame(int x, int y, int width, int height, int centerX, int centerY, int duration, int sheetIndex, int id) {
-                Frame frame = new Frame(x, y, width, height, centerX, centerY, duration, sheetIndex, id);
-                frame.Framerate = Framerate;
+            public Frame AddFrame(int x, int y, int width, int height, int offsetX, int offsetY, int duration, int sheet, int id) {
+                Frame frame = new Frame(this, x, y, width, height, offsetX, offsetY, duration, sheet, id);
+                frame.Animation = this;
                 Frames.Add(frame);
                 return frame;
             }
@@ -432,7 +434,7 @@ namespace RSDKv5 {
                 animation.RotationStyle = reader.ReadByte();
 
                 for (ushort i = 0; i < frameCount; i++) {
-                    animation.Frames.Add(Frame.Read(sprite, reader));
+                    animation.Frames.Add(Frame.Read(sprite, animation, reader));
                 }
 
                 return animation;
@@ -495,9 +497,10 @@ namespace RSDKv5 {
                 [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
                 public List<Hitbox>? Hitboxes = null;
 
-                public int Framerate = 60;
+                public Animation Animation;
 
-                public Frame(int x, int y, int width, int height, int offsetX, int offsetY, int duration, int spritesheetIndex, int id) {
+                public Frame(Animation anim, int x, int y, int width, int height, int offsetX, int offsetY, int duration, int sheet, int id) {
+                    Animation = anim;
                     X = (ushort)x;
                     Y = (ushort)y;
                     Width = (ushort)width;
@@ -505,7 +508,7 @@ namespace RSDKv5 {
                     OffsetX = (short)offsetX;
                     OffsetY = (short)offsetY;
                     Duration = duration;
-                    SpritesheetIndex = (byte)spritesheetIndex;
+                    SpritesheetIndex = (byte)sheet;
                     ID = id;
                 }
 
@@ -520,7 +523,7 @@ namespace RSDKv5 {
                 }
 
                 public int GetDurationInFrames() {
-                    return (Duration * Framerate + 999) / 1000; // ceil
+                    return (Duration * Animation.Framerate + 999) / 1000; // ceil
                 }
 
                 public static int GetDurationInMilliseconds(int duration, int framerate) {
@@ -528,7 +531,7 @@ namespace RSDKv5 {
                     return (int)(time * 1000);
                 }
 
-                public static Frame Read(Sprite sprite, BinaryReader reader) {
+                public static Frame Read(Sprite sprite, Animation anim, BinaryReader reader) {
                     byte spritesheetIndex = reader.ReadByte();
                     int duration = GetDurationInMilliseconds(reader.ReadUInt16(), sprite.Framerate);
                     ushort id = reader.ReadUInt16();
@@ -539,7 +542,7 @@ namespace RSDKv5 {
                     short offsetX = reader.ReadInt16();
                     short offsetY = reader.ReadInt16();
 
-                    Frame frame = new Frame(x, y, width, height, offsetX, offsetY, duration, spritesheetIndex, id);
+                    Frame frame = new Frame(anim, x, y, width, height, offsetX, offsetY, duration, spritesheetIndex, id);
 
                     if (sprite.HitboxNames.Count > 0) {
                         frame.Hitboxes = new List<Hitbox>();

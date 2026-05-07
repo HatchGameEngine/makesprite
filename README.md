@@ -64,7 +64,8 @@ makesprite -i font.ase --sheet-path "fonts/" -f
   The default is 'none'.
 - --group-split-sheets: Split spritesheets by groups.
 - --sequence: Treat the input files as a sequence of frames, rather than separate animations.
-- --frame-rate: When importing from or exporting to a RSDKv5 sprite, this option defines the frame rate. The default is 60 frames per second.
+- --input-frame-rate: Define the frame rate of imported animations that use frame rate based durations. The default is 60 frames per second.
+- --frame-rate: Define the frame rate of exported animations that use frame rate based durations. The default is 60 frames per second.
 - --frame-sort: How to sort the frames in the spritesheet. Accepted options:
   - none: Don't sort.
   - area: Sort by the area of the frame.
@@ -80,5 +81,5 @@ makesprite -i font.ase --sheet-path "fonts/" -f
 - --no-sprites: Don't export sprites.
 - --font: Output a font sprite.
 - --overwrite: Replace files that already exist.
-- --verbose: Verbose output.
+- --verbose: Enable verbose output.
 - -h, --help: Show the usage text and exit.
