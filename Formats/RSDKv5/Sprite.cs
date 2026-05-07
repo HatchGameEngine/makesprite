@@ -8,14 +8,8 @@ using System.Text.Json.Serialization;
 
 namespace RSDKv5 {
     public class Sprite {
-        [JsonInclude]
-        [JsonPropertyName("spritesheets")]
-        public List<string> SpritesheetNames = new List<string>();
-
-        [JsonInclude]
-        [JsonPropertyName("animations")]
         public List<Animation> Animations = new List<Animation>();
-
+        public List<string> SpritesheetNames = new List<string>();
         public List<string> HitboxNames = new List<string>();
 
         // Converts this sprite to a makesprite.Sprite.
@@ -133,18 +127,28 @@ namespace RSDKv5 {
         }
 
         public string SerializeAsJSON(JsonSerializerOptions serializerOptions) {
-            JsonNode? root = JsonSerializer.SerializeToNode(this, serializerOptions);
-            if (root == null) {
-                return "";
-            }
+            var json = new JsonObject();
 
-            JsonObject json = root.AsObject();
+            // Add version
             json.Add("version", 1);
+
+            // Add metadata
             json.Add("meta", new System.Text.Json.Nodes.JsonObject {
                 ["exporter"] = "makesprite v1.0.0"
             });
 
-            return root.ToJsonString(serializerOptions);
+            // Add spritesheets
+            JsonArray spritesheets = new JsonArray();
+            for (int i = 0; i < SpritesheetNames.Count; i++) {
+                spritesheets.Add(SpritesheetNames[i]);
+            }
+            json.Add("spritesheets", spritesheets);
+
+            // Add animations
+            json.Add("animations", JsonSerializer.SerializeToNode(Animations, serializerOptions));
+
+            // Convert to string
+            return json.ToJsonString(serializerOptions);
         }
 
         public static makesprite.Sprite DeserializeFromJSON(string jsonText, string filename) {
@@ -152,20 +156,6 @@ namespace RSDKv5 {
             if (json == null) {
                 throw new Exception("Could not parse JSON");
             }
-
-            /*JsonElement GetElement(JsonElement element, string fieldName, JsonValueKind kind) {
-                JsonElement val;
-
-                if (!element.TryGetProperty(fieldName, out val)) {
-                    throw new Exception("Expected \"" + fieldName + "\" to exist but didn't");
-                }
-
-                if (val.ValueKind != kind) {
-                    throw new Exception("Expected \"" + fieldName + "\" to be " + kind + " but was " + val.ValueKind + " instead");
-                }
-
-                return val;
-            }*/
 
             string GetString(JsonElement element, string fieldName) {
                 JsonElement val;
