@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using Hatch;
 using RSDKv5;
@@ -920,10 +921,7 @@ namespace makesprite {
                 case SpriteFormat.JSON:
                     Program.LogVerbose("  Format: JSON");
                     using (StreamWriter writer = new StreamWriter(fs)) {
-                        JsonSerializerOptions options = new JsonSerializerOptions{
-                            WriteIndented = true
-                        };
-
+                        JsonSerializerOptions options = RSDKv5.Sprite.GetSerializerOptions();
                         string json = sprite.SerializeAsJSON(options);
                         writer.Write(json);
                     }

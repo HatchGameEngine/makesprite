@@ -5,12 +5,30 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace RSDKv5 {
     public class Sprite {
         public const uint FILE_MAGIC = 0x00525053;
 
         public const int BASE_FRAMERATE = 60;
+
+        public enum RotationStyle {
+            None,
+            Full,
+
+            [JsonStringEnumMemberName("45-degrees")]
+            Degrees45,
+
+            [JsonStringEnumMemberName("90-degrees")]
+            Degrees90,
+
+            [JsonStringEnumMemberName("180-degrees")]
+            Degrees180,
+
+            [JsonStringEnumMemberName("static-frames")]
+            StaticFrames
+        };
 
         public List<Animation> Animations = new List<Animation>();
         public List<string> SpritesheetNames = new List<string>();
@@ -137,6 +155,28 @@ namespace RSDKv5 {
             return sprite;
         }
 
+        public static JsonSerializerOptions GetSerializerOptions() {
+            static void serializerModifier(JsonTypeInfo typeInfo) {
+                foreach (var property in typeInfo.Properties) {
+                    if (typeInfo.Type == typeof(Animation) && property.Name == "rotationStyle") {
+                        property.ShouldSerialize = static (obj, val) => (RotationStyle?)val != RotationStyle.Full;
+                    }
+                }
+            }
+
+            return new JsonSerializerOptions{
+                WriteIndented = true,
+                Converters = {
+                    new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)
+                },
+                TypeInfoResolver = new DefaultJsonTypeInfoResolver {
+                    Modifiers = {
+                        serializerModifier
+                    }
+                }
+            };
+        }
+
         public string SerializeAsJSON(JsonSerializerOptions serializerOptions) {
             var json = new JsonObject();
 
@@ -212,7 +252,7 @@ namespace RSDKv5 {
                 return val;
             }
 
-            long GetOptionalInteger(JsonElement element, string fieldName, short defaultValue) {
+            long GetOptionalInteger(JsonElement element, string fieldName, long defaultValue) {
                 JsonElement val;
 
                 long number = defaultValue;
@@ -237,12 +277,12 @@ namespace RSDKv5 {
                 string animationName = GetString(animation, "name");
                 short speed = (short)GetOptionalInteger(animation, "speed", 1);
                 byte loopFrame = (byte)GetOptionalInteger(animation, "loopFrame", 0);
-                byte rotationStyle = (byte)GetOptionalInteger(animation, "rotationStyle", 0);
+                byte rotationStyle = (byte)GetOptionalInteger(animation, "rotationStyle", (long)RotationStyle.None);
 
                 RSDKv5.Sprite.Animation animEntry = new RSDKv5.Sprite.Animation(animationName);
                 animEntry.Speed = (ushort)speed;
                 animEntry.LoopFrame = loopFrame;
-                animEntry.RotationStyle = rotationStyle;
+                animEntry.RotationStyle = (RotationStyle)rotationStyle;
                 sprite.AddAnimation(animEntry);
 
                 JsonElement? valFrames = GetOptionalElement(animation, "frames", JsonValueKind.Array);
@@ -397,7 +437,7 @@ namespace RSDKv5 {
             [JsonInclude]
             [JsonPropertyName("rotationStyle")]
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-            public byte RotationStyle = 0;
+            public RotationStyle RotationStyle = RotationStyle.Full;
 
             [JsonInclude]
             [JsonPropertyName("frames")]
@@ -431,7 +471,7 @@ namespace RSDKv5 {
                 ushort frameCount = reader.ReadUInt16();
                 animation.Speed = reader.ReadUInt16();
                 animation.LoopFrame = reader.ReadByte();
-                animation.RotationStyle = reader.ReadByte();
+                animation.RotationStyle = (RotationStyle)reader.ReadByte();
 
                 for (ushort i = 0; i < frameCount; i++) {
                     animation.Frames.Add(Frame.Read(sprite, animation, reader));
@@ -445,7 +485,7 @@ namespace RSDKv5 {
                 writer.Write((ushort)Frames.Count);
                 writer.Write(GetSpeed());
                 writer.Write(LoopFrame);
-                writer.Write(RotationStyle);
+                writer.Write((byte)RotationStyle);
 
                 for (ushort i = 0; i < Frames.Count; i++) {
                     Frame frame = Frames[i];
