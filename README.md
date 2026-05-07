@@ -7,26 +7,26 @@ makesprite is a tool that converts animated sprites into Hatch formats.
 ### Input formats
 
 #### Animation formats
-- RSDKv5 sprite format
-- JSON schema
-- Aseprite v1.3 file format (.ase/.aseprite)
+- JSON sprite format
+- Retro Engine (RSDKv5) animation format
+- Aseprite file (.ase/.aseprite)
   - Not all features are supported. If something in an .ase is not preserved during conversion, assume it's unimplemented.
-- PNG image
+- PNG
   - APNG is not currently supported.
-- GIF animation
+- GIF
 
 #### Spritesheet formats
-- PNG image
-- GIF animation
+- PNG
+- GIF
 
 ### Output formats
 
 #### Animation formats
-- RSDKv5 sprite format
-- JSON schema
+- JSON sprite format
+- Retro Engine (RSDKv5) animation format
 
 #### Spritesheet formats
-- PNG image
+- PNG
 
 #### Palette formats
 - Hatch palette (.hpal)
@@ -83,3 +83,81 @@ makesprite -i font.ase --sheet-path "fonts/" -f
 - --overwrite: Replace files that already exist.
 - --verbose: Enable verbose output.
 - -h, --help: Show the usage text and exit.
+
+## Which format to use
+
+### For importing or exporting
+
+The following formats can be imported by or exported from makesprite as a sprite.
+
+#### JSON sprite format
+
+This format is based on the Retro Engine animation format, with a few improvements.
+
+##### Pros
+- Extensible.
+- Can be parsed by any tool or engine that can read JSON.
+- Can be directly modified with any text editor.
+
+##### Cons
+- Not supported by Hatch.
+- Cannot be opened by the Animation Editor tool.
+- No quick way to preview the animations.
+
+#### Retro Engine (RSDKv5) animation format
+
+This is the format used by the Retro Engine, which Hatch also supports.
+
+##### Pros
+- Supported by Hatch.
+- Can be opened by the Animation Editor tool.
+
+##### Cons
+- Not extensible.
+- Cannot represent all fields of the JSON sprite format.
+
+### For importing
+
+The following formats can be imported by makesprite as a sprite.
+
+#### Aseprite file (.ase/.aseprite)
+
+Multiple animations and hitboxes can be imported from an Aseprite file.
+
+Tags are used to contain frames into their own animations. The name of the tag defines the name of the animation.
+
+To define hitboxes for frames, create one layer for each hitbox, and draw rectangles on them to define their shapes. They don't have to be hidden. Their names must begin with `Hitbox:`, and the part after `Hitbox:` defines the name of the hitbox. For example, a layer named `Hitbox: Body` will define a hitbox named `Body`.
+
+To define loop frames for animations, create a layer named `Loop Frame`. It doesn't have to be hidden. The non-empty frame of said layer within a tag will define the loop frame index for the corresponding animation. Only one layer in the file can be named `Loop Frame`.
+
+##### Pros
+- Supports truecolor and indexed color modes.
+- Can define hitboxes.
+- Can define loop frames.
+
+##### Cons
+- Not all features are supported by makesprite.
+
+#### PNG
+
+PNG images can be imported as a sprite. To import a sequence of PNGs as a single animation, use `--sequence`.
+
+##### Pros
+- Easy way to import a sequence of frames.
+
+##### Cons
+- APNG is not supported by makesprite.
+- Can't define hitboxes.
+- Can't define loop frames.
+
+#### GIF
+
+GIF images can be imported as a sprite. Each input GIF directly maps to its own animation.
+
+##### Pros
+- Easy way to import an animation.
+
+##### Cons
+- Can only be indexed.
+- Can't define hitboxes.
+- Can't define loop frames.
