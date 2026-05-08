@@ -54,7 +54,7 @@ namespace GIF {
 
         public File(BinaryReader reader) {
             if (!ReadAndValidateHeader(reader)) {
-                throw new Exception("Invalid GIF file");
+                throw new InvalidOperationException("Invalid GIF file");
             }
 
             Width = reader.ReadUInt16();
@@ -141,7 +141,7 @@ namespace GIF {
                         break;
                     }
                     default:
-                        throw new Exception("Unsupported GIF control extension");
+                        throw new InvalidOperationException("Unsupported GIF control extension");
                     }
                     break;
                 }
@@ -151,7 +151,7 @@ namespace GIF {
                     ushort frameY = reader.ReadUInt16();
 
                     if (frameX >= Width || frameY >= Height) {
-                        throw new Exception("Invalid GIF Image Descriptor");
+                        throw new InvalidOperationException("Invalid GIF Image Descriptor");
                     }
 
                     ushort frameWidth = reader.ReadUInt16();
@@ -187,10 +187,10 @@ namespace GIF {
                     bool interlaced = (packedField & 0x40) == 0x40;
                     if (interlaced) {
                         if ((widthMinusOne & (widthMinusOne - 1)) != 0) {
-                            throw new Exception("Interlaced GIF width must be power of two");
+                            throw new InvalidOperationException("Interlaced GIF width must be power of two");
                         }
                         if ((heightMinusOne & (heightMinusOne - 1)) != 0) {
-                            throw new Exception("Interlaced GIF height must be power of two");
+                            throw new InvalidOperationException("Interlaced GIF height must be power of two");
                         }
 
                         while (widthMinusOne > 0) {

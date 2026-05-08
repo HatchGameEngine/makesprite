@@ -87,7 +87,7 @@ namespace Hatch {
                     using (FileStream stream = new FileStream(sheetPath, FileMode.Open)) {
                         makesprite.ImageFile? imageFile = makesprite.ImageFile.Load(stream);
                         if (imageFile == null) {
-                            throw new Exception("Could not load spritesheet " + sheetPath);
+                            throw new InvalidOperationException("Could not load spritesheet " + sheetPath);
                         }
 
                         sheetImages.Add(imageFile);
@@ -106,10 +106,10 @@ namespace Hatch {
                     }
                 }
                 catch (System.IO.FileNotFoundException) {
-                    throw new Exception("Could not find spritesheet " + sheetPath);
+                    throw new InvalidOperationException("Could not find spritesheet " + sheetPath);
                 }
                 catch (System.IO.DirectoryNotFoundException) {
-                    throw new Exception("Could not find spritesheet " + sheetPath);
+                    throw new InvalidOperationException("Could not find spritesheet " + sheetPath);
                 }
             }
 
@@ -134,7 +134,7 @@ namespace Hatch {
                     frame.ID = animFrame.ID;
 
                     if (animFrame.SpritesheetIndex >= sheetPixels.Count) {
-                        throw new Exception("Invalid spritesheet index " + animFrame.SpritesheetIndex);
+                        throw new InvalidOperationException("Invalid spritesheet index " + animFrame.SpritesheetIndex);
                     }
 
                     makesprite.ImageFile sheetImage = sheetImages[animFrame.SpritesheetIndex];
@@ -222,19 +222,59 @@ namespace Hatch {
         }
 
         public static makesprite.Sprite DeserializeFromJSON(string jsonText, string filename) {
+            InvalidOperationException Err(string err) {
+                return new InvalidOperationException("Error parsing \"" + filename + "\": " + err);
+            }
+
+            InvalidOperationException ErrAtAnim(string anim, string err) {
+                return new InvalidOperationException("Error parsing \"" + filename + "\" at animation \"" + anim + "\": " + err);
+            }
+
+            InvalidOperationException ErrAtFrame(string anim, int frame, string err) {
+                return new InvalidOperationException(
+                    "Error parsing \"" + filename + "\" at animation \"" + anim + "\", frame " + frame + ": " + err
+                );
+            }
+
             Dictionary<string, object>? json = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonText);
             if (json == null) {
-                throw new Exception("Could not parse JSON");
+                throw Err("Could not parse JSON");
+            }
+
+            JsonElement GetElement(JsonElement element, string fieldName, JsonValueKind kind) {
+                JsonElement val;
+
+                if (!element.TryGetProperty(fieldName, out val)) {
+                    throw Err("Expected \"" + fieldName + "\" to exist but didn't");
+                }
+                if (val.ValueKind != kind) {
+                    throw Err("Expected \"" + fieldName + "\" to be " + kind + " but was " + val.ValueKind);
+                }
+
+                return val;
+            }
+
+            JsonElement? GetOptionalElement(JsonElement element, string fieldName, JsonValueKind kind) {
+                JsonElement val;
+
+                if (!element.TryGetProperty(fieldName, out val)) {
+                    return null;
+                }
+                if (val.ValueKind != kind) {
+                    throw Err("Expected \"" + fieldName + "\" to be " + kind + " but was " + val.ValueKind);
+                }
+
+                return val;
             }
 
             string GetString(JsonElement element, string fieldName) {
                 JsonElement val;
 
                 if (!element.TryGetProperty(fieldName, out val)) {
-                    throw new Exception("Expected \"" + fieldName + "\" to exist but didn't");
+                    throw Err("Expected \"" + fieldName + "\" to exist but didn't");
                 }
                 if (val.ValueKind != JsonValueKind.String) {
-                    throw new Exception("Expected \"" + fieldName + "\" to be string but was " + val.ValueKind + " instead");
+                    throw Err("Expected \"" + fieldName + "\" to be string but was " + val.ValueKind);
                 }
 
                 return val.ToString();
@@ -247,7 +287,7 @@ namespace Hatch {
                     return defaultValue;
                 }
                 if (val.ValueKind != JsonValueKind.String) {
-                    throw new Exception("Expected \"" + fieldName + "\" to be string but was " + val.ValueKind + " instead");
+                    throw Err("Expected \"" + fieldName + "\" to be string but was " + val.ValueKind);
                 }
 
                 return val.ToString();
@@ -259,26 +299,13 @@ namespace Hatch {
                 long number;
 
                 if (!element.TryGetProperty(fieldName, out val)) {
-                    throw new Exception("Expected \"" + fieldName + "\" to exist but didn't");
+                    throw Err("Expected \"" + fieldName + "\" to exist but didn't");
                 }
                 if (!val.TryGetInt64(out number)) {
-                    throw new Exception("Expected \"" + fieldName + "\" to be integer but was " + val.ValueKind + " instead");
+                    throw Err("Expected \"" + fieldName + "\" to be integer but was " + val.ValueKind);
                 }
 
                 return number;
-            }
-
-            JsonElement? GetOptionalElement(JsonElement element, string fieldName, JsonValueKind kind) {
-                JsonElement val;
-
-                if (!element.TryGetProperty(fieldName, out val)) {
-                    return null;
-                }
-                if (val.ValueKind != kind) {
-                    throw new Exception("Expected \"" + fieldName + "\" to be " + kind + " but was " + val.ValueKind + " instead");
-                }
-
-                return val;
             }
 
             long GetOptionalInteger(JsonElement element, string fieldName, long defaultValue) {
@@ -287,7 +314,7 @@ namespace Hatch {
                 long number = defaultValue;
 
                 if (element.TryGetProperty(fieldName, out val) && !val.TryGetInt64(out number)) {
-                    throw new Exception("Expected \"" + fieldName + "\" to be integer but was " + val.ValueKind + " instead");
+                    throw Err("Expected \"" + fieldName + "\" to be integer but was " + val.ValueKind);
                 }
 
                 return number;
@@ -299,7 +326,7 @@ namespace Hatch {
                 float number = defaultValue;
 
                 if (element.TryGetProperty(fieldName, out val) && !val.TryGetSingle(out number)) {
-                    throw new Exception("Expected \"" + fieldName + "\" to be decimal but was " + val.ValueKind + " instead");
+                    throw Err("Expected \"" + fieldName + "\" to be decimal but was " + val.ValueKind);
                 }
 
                 return number;
@@ -308,28 +335,28 @@ namespace Hatch {
             Sprite sprite = new Sprite();
 
             if (!json.ContainsKey("version")) {
-                throw new Exception("Required field \"version\" was not present");
+                throw Err("Required field \"version\" was not present");
             }
 
             JsonElement version = (JsonElement)json["version"];
             if (version.ValueKind != JsonValueKind.Number) {
-                throw new Exception("Expected \"version\" to be integer but was " + version.ValueKind + " instead");
+                throw Err("Expected \"version\" to be integer but was " + version.ValueKind);
             }
             long versionInt = version.GetInt64();
             if (versionInt < 1) {
-                throw new Exception("Invalid version " + versionInt);
+                throw Err("Invalid version " + versionInt);
             }
             else if (versionInt > SCHEMA_VERSION) {
-                throw new Exception("Unsupported version " + versionInt);
+                throw Err("Unsupported version " + versionInt);
             }
 
             if (!json.ContainsKey("spritesheets")) {
-                throw new Exception("Required field \"spritesheets\" was not present");
+                throw Err("Required field \"spritesheets\" was not present");
             }
 
             JsonElement spritesheets = (JsonElement)json["spritesheets"];
             if (spritesheets.ValueKind != JsonValueKind.Array) {
-                throw new Exception("Expected \"spritesheets\" to be array but was " + spritesheets.ValueKind + " instead");
+                throw Err("Expected \"spritesheets\" to be array but was " + spritesheets.ValueKind);
             }
 
             for (int i = 0; i < spritesheets.GetArrayLength(); i++) {
@@ -342,16 +369,16 @@ namespace Hatch {
 
             int numSheets = sprite.SpritesheetNames.Count;
             if (numSheets == 0) {
-                throw new Exception("No sheets in sprite");
+                throw Err("No sheets in sprite");
             }
 
             if (!json.ContainsKey("animations")) {
-                throw new Exception("Required field \"animations\" was not present");
+                throw Err("Required field \"animations\" was not present");
             }
 
             JsonElement animations = (JsonElement)json["animations"];
             if (animations.ValueKind != JsonValueKind.Array) {
-                throw new Exception("Expected \"animations\" to be array but was " + animations.ValueKind + " instead");
+                throw Err("Expected \"animations\" to be array but was " + animations.ValueKind);
             }
 
             float defaultFrameDuration = Animation.Frame.GetDurationInMilliseconds(1, BASE_FRAMERATE);
@@ -370,7 +397,7 @@ namespace Hatch {
                     "reverse" => AnimationDirection.Reverse,
                     "ping-pong" => AnimationDirection.PingPong,
                     "ping-pong-reverse" => AnimationDirection.PingPongReverse,
-                    _ => throw new Exception("Invalid enum \"" + direction + "\" for direction")
+                    _ => throw ErrAtAnim(animationName, "Invalid enum \"" + direction + "\" for direction")
                 };
 
                 RotationStyle rotationStyleEnum = rotationStyle switch {
@@ -380,7 +407,7 @@ namespace Hatch {
                     "90-degrees" => RotationStyle.Degrees90,
                     "180-degrees" => RotationStyle.Degrees180,
                     "static-frames" => RotationStyle.StaticFrames,
-                    _ => throw new Exception("Invalid enum \"" + rotationStyle + "\" for rotationStyle")
+                    _ => throw ErrAtAnim(animationName, "Invalid enum \"" + rotationStyle + "\" for rotationStyle")
                 };
 
                 Hatch.Sprite.Animation animEntry = new Hatch.Sprite.Animation(animationName);
@@ -390,13 +417,7 @@ namespace Hatch {
                 animEntry.RotationStyle = rotationStyleEnum;
                 sprite.AddAnimation(animEntry);
 
-                JsonElement? valFrames = GetOptionalElement(animation, "frames", JsonValueKind.Array);
-                if (valFrames == null) {
-                    continue;
-                }
-
-                JsonElement frames = (JsonElement)valFrames;
-
+                JsonElement frames = GetElement(animation, "frames", JsonValueKind.Array);
                 for (int f = 0; f < frames.GetArrayLength(); f++) {
                     var frame = frames[f];
 
@@ -407,39 +428,32 @@ namespace Hatch {
                     int offsetX = (int)GetOptionalInteger(frame, "offsetX", 0);
                     int offsetY = (int)GetOptionalInteger(frame, "offsetY", 0);
                     float duration = GetOptionalDecimal(frame, "duration", defaultFrameDuration);
-                    int spritesheetIndex = (int)GetOptionalInteger(frame, "spritesheetIndex", 0);
+                    int sheetIndex = (int)GetOptionalInteger(frame, "spritesheetIndex", 0);
                     int id = (int)GetOptionalInteger(frame, "id", 0);
 
                     if (x < 0) {
-                        throw new Exception("Invalid frame X " + x);
+                        throw ErrAtFrame(animationName, f, "Invalid frame X " + x);
                     }
                     if (y < 0) {
-                        throw new Exception("Invalid frame Y " + y);
+                        throw ErrAtFrame(animationName, f, "Invalid frame Y " + y);
                     }
                     if (width < 0) {
-                        throw new Exception("Invalid frame width " + width);
+                        throw ErrAtFrame(animationName, f, "Invalid frame width " + width);
                     }
                     if (height < 0) {
-                        throw new Exception("Invalid frame height " + height);
+                        throw ErrAtFrame(animationName, f, "Invalid frame height " + height);
                     }
                     if (duration < 1) {
-                        throw new Exception("Invalid frame duration " + duration);
+                        throw ErrAtFrame(animationName, f, "Invalid frame duration " + duration);
                     }
-                    if (spritesheetIndex < 0) {
-                        throw new Exception("Invalid sheet index " + spritesheetIndex);
+                    if (sheetIndex < 0) {
+                        throw ErrAtFrame(animationName, f, "Invalid sheet index " + sheetIndex);
                     }
-                    else if (spritesheetIndex >= numSheets) {
-                        throw new Exception("Invalid sheet index " + spritesheetIndex + " (max is " + (numSheets - 1) + ")");
+                    else if (sheetIndex >= numSheets) {
+                        throw ErrAtFrame(animationName, f, "Invalid sheet index " + sheetIndex + " (max is " + (numSheets - 1) + ")");
                     }
 
-                    Hatch.Sprite.Animation.Frame fr = animEntry.AddFrame(
-                        x, y,
-                        width, height,
-                        offsetX, offsetY,
-                        duration,
-                        spritesheetIndex,
-                        id
-                    );
+                    Hatch.Sprite.Animation.Frame fr = animEntry.AddFrame(x, y, width, height, offsetX, offsetY, duration, sheetIndex, id);
 
                     JsonElement? valHitboxes = GetOptionalElement(frame, "hitboxes", JsonValueKind.Array);
                     if (valHitboxes != null) {
@@ -481,7 +495,7 @@ namespace Hatch {
 
         public void ReadRSDKv5(BinaryReader reader) {
             if (!IsValidRSDKv5File(reader)) {
-                throw new Exception("Not a RSDKv5 sprite");
+                throw new InvalidOperationException("Not a RSDKv5 sprite");
             }
 
             reader.ReadUInt32(); // Frame count. Not needed

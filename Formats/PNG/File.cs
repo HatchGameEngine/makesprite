@@ -130,7 +130,7 @@ namespace PNG {
 
         public File(BinaryReader reader) {
             if (!ReadAndValidatePNGHeader(reader)) {
-                throw new Exception("Invalid PNG file");
+                throw new InvalidOperationException("Invalid PNG file");
             }
 
             ReadIHDR(reader);
@@ -300,7 +300,7 @@ namespace PNG {
                 }
                 else if (ColorType != ColorType.Grayscale) {
                     // This shouldn't be possible
-                    throw new Exception("Invalid PNG file");
+                    throw new InvalidOperationException("Invalid PNG file");
                 }
 
                 for (int p = 0; p < Width * Height; p++) {

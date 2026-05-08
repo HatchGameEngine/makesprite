@@ -44,7 +44,14 @@ namespace makesprite {
                 break;
             }
 
-            List<Sprite> sprites = ReadInputFiles();
+            List<Sprite> sprites;
+            try {
+                sprites = ReadInputFiles();
+            }
+            catch (InvalidOperationException ex) {
+                Console.WriteLine(ex.Message);
+                return 1;
+            }
 
             Converter converter = new Converter();
             converter.CurrentOptions = ConverterOptions;
