@@ -13,16 +13,18 @@
   - `direction`: An enum. The animation direction. Must be one of the following: `"forward"`, `"reverse"`, `"ping-pong"`, `"ping-pong-reverse"`. If omitted, assume this is `"forward"`.
   - `rotationStyle`: An enum. The rotation style. Must be one of the following: `"none"`, `"full"`, `"45-degrees"`, `"90-degrees"`, `"180-degrees"`, `"static-frames"`. If omitted, assume this is `"full"`.
   - `frames`: An array. Contains the frames. Required.
-    - `sheetX`: An integer. The X position in the spritesheet where the frame starts.
-    - `sheetY`: An integer. The Y position in the spritesheet where the frame starts.
-    - `width`: An integer. The width.
-    - `height`: An integer. The height.
-    - `duration`: A number. How long the frame lasts, in milliseconds. If omitted, assume this is `16.6666666667`.
-    - `spritesheetIndex`: An integer. The spritesheet index. If omitted, assume this is `0`.
+    - `sheetX`: An integer. The X position in the spritesheet where the frame starts. Required.
+    - `sheetY`: An integer. The Y position in the spritesheet where the frame starts. Required.
+    - `width`: An integer. The width. Required.
+    - `height`: An integer. The height. Required.
+    - `offsetX`: An integer. The horizontal offset. If omitted, assume this is `0`.
+    - `offsetY`: An integer. The vertical offset. If omitted, assume this is `0`.
+    - `duration`: A number. How long the frame lasts, in milliseconds. If omitted, assume this is 1000/60 ms.
+    - `spritesheetIndex`: An integer. The index of the spritesheet to use. If omitted, assume this is `0`.
     - `id`: An integer. If omitted, assume this is `0`.
-    - `hitboxes`: An array. Contains the hitboxes.
-      - `name`: A string. The name of the hitbox. Required.
-      - `left`: An integer. The left side of the hitbox. Required.
-      - `top`: An integer. The top side of the hitbox. Required.
-      - `right`: An integer. The right side of the hitbox. Required.
-      - `bottom`: An integer. The bottom side of the hitbox. Required.
+    - `hitboxes`: An array. Contains the hitboxes. All fields in it are required.
+      - `name`: A string. The name of the hitbox.
+      - `left`: An integer. The left side of the hitbox.
+      - `top`: An integer. The top side of the hitbox.
+      - `right`: An integer. The right side of the hitbox.
+      - `bottom`: An integer. The bottom side of the hitbox.
