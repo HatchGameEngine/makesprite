@@ -134,7 +134,7 @@ namespace Hatch {
                     frame.ID = animFrame.ID;
 
                     if (animFrame.SpritesheetIndex >= sheetPixels.Count) {
-                        throw new InvalidOperationException("Invalid spritesheet index " + animFrame.SpritesheetIndex);
+                        throw new InvalidOperationException("Invalid sheet index " + animFrame.SpritesheetIndex);
                     }
 
                     makesprite.ImageFile sheetImage = sheetImages[animFrame.SpritesheetIndex];
@@ -428,7 +428,7 @@ namespace Hatch {
                     int offsetX = (int)GetOptionalInteger(frame, "offsetX", 0);
                     int offsetY = (int)GetOptionalInteger(frame, "offsetY", 0);
                     float duration = GetOptionalDecimal(frame, "duration", defaultFrameDuration);
-                    int sheetIndex = (int)GetOptionalInteger(frame, "spritesheetIndex", 0);
+                    int sheetIndex = (int)GetOptionalInteger(frame, "sheetIndex", 0);
                     int id = (int)GetOptionalInteger(frame, "id", 0);
 
                     if (x < 0) {
@@ -626,6 +626,11 @@ namespace Hatch {
 
             public class Frame {
                 [JsonInclude]
+                [JsonPropertyName("sheetIndex")]
+                [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+                public byte SpritesheetIndex;
+
+                [JsonInclude]
                 [JsonPropertyName("sheetX")]
                 public int SheetX;
 
@@ -652,11 +657,6 @@ namespace Hatch {
                 [JsonInclude]
                 [JsonPropertyName("duration")]
                 public float Duration;
-
-                [JsonInclude]
-                [JsonPropertyName("spritesheetIndex")]
-                [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-                public byte SpritesheetIndex;
 
                 [JsonInclude]
                 [JsonPropertyName("id")]

@@ -90,7 +90,7 @@
                 "duration": {
                   "type": "number"
                 },
-                "spritesheetIndex": {
+                "sheetIndex": {
                   "type": "integer"
                 },
                 "id": {
