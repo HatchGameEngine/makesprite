@@ -6,12 +6,17 @@ using System.Text.Json.Serialization.Metadata;
 
 namespace Hatch {
     public class Sprite {
-        public const uint RSDKV5_FILE_MAGIC = 0x00525053;
+        public const int SCHEMA_VERSION = 1;
 
         public const int BASE_FRAMERATE = 60;
 
+        public const uint RSDKV5_FILE_MAGIC = 0x00525053;
+
         public enum AnimationDirection {
+            [JsonStringEnumMemberName("forward")]
             Forward,
+
+            [JsonStringEnumMemberName("reverse")]
             Reverse,
 
             [JsonStringEnumMemberName("ping-pong")]
@@ -22,7 +27,10 @@ namespace Hatch {
         };
 
         public enum RotationStyle {
+            [JsonStringEnumMemberName("none")]
             None,
+
+            [JsonStringEnumMemberName("full")]
             Full,
 
             [JsonStringEnumMemberName("45-degrees")]
@@ -232,6 +240,19 @@ namespace Hatch {
                 return val.ToString();
             }
 
+            string GetOptionalString(JsonElement element, string fieldName, string defaultValue) {
+                JsonElement val;
+
+                if (!element.TryGetProperty(fieldName, out val)) {
+                    return defaultValue;
+                }
+                if (val.ValueKind != JsonValueKind.String) {
+                    throw new Exception("Expected \"" + fieldName + "\" to be string but was " + val.ValueKind + " instead");
+                }
+
+                return val.ToString();
+            }
+
             long GetInteger(JsonElement element, string fieldName) {
                 JsonElement val;
 
@@ -284,12 +305,54 @@ namespace Hatch {
                 return number;
             }
 
+            Sprite sprite = new Sprite();
+
+            if (!json.ContainsKey("version")) {
+                throw new Exception("Required field \"version\" was not present");
+            }
+
+            JsonElement version = (JsonElement)json["version"];
+            if (version.ValueKind != JsonValueKind.Number) {
+                throw new Exception("Expected \"version\" to be integer but was " + version.ValueKind + " instead");
+            }
+            long versionInt = version.GetInt64();
+            if (versionInt < 1) {
+                throw new Exception("Invalid version " + versionInt);
+            }
+            else if (versionInt > SCHEMA_VERSION) {
+                throw new Exception("Unsupported version " + versionInt);
+            }
+
+            if (!json.ContainsKey("spritesheets")) {
+                throw new Exception("Required field \"spritesheets\" was not present");
+            }
+
+            JsonElement spritesheets = (JsonElement)json["spritesheets"];
+            if (spritesheets.ValueKind != JsonValueKind.Array) {
+                throw new Exception("Expected \"spritesheets\" to be array but was " + spritesheets.ValueKind + " instead");
+            }
+
+            for (int i = 0; i < spritesheets.GetArrayLength(); i++) {
+                var sheetEntry = spritesheets[i];
+
+                string sheetPath = GetString(sheetEntry, "path");
+
+                sprite.SpritesheetNames.Add(sheetPath);
+            }
+
+            int numSheets = sprite.SpritesheetNames.Count;
+            if (numSheets == 0) {
+                throw new Exception("No sheets in sprite");
+            }
+
+            if (!json.ContainsKey("animations")) {
+                throw new Exception("Required field \"animations\" was not present");
+            }
+
             JsonElement animations = (JsonElement)json["animations"];
             if (animations.ValueKind != JsonValueKind.Array) {
                 throw new Exception("Expected \"animations\" to be array but was " + animations.ValueKind + " instead");
             }
-
-            Sprite sprite = new Sprite();
 
             float defaultFrameDuration = Animation.Frame.GetDurationInMilliseconds(1, BASE_FRAMERATE);
 
@@ -297,14 +360,34 @@ namespace Hatch {
                 var animation = animations[a];
 
                 string animationName = GetString(animation, "name");
-                short speed = (short)GetOptionalInteger(animation, "speed", 1);
-                byte loopFrame = (byte)GetOptionalInteger(animation, "loopFrame", 0);
-                byte rotationStyle = (byte)GetOptionalInteger(animation, "rotationStyle", (long)RotationStyle.None);
+                int speed = (int)GetOptionalInteger(animation, "speed", 1);
+                int loopFrame = (int)GetOptionalInteger(animation, "loopFrame", 0);
+                string direction = GetOptionalString(animation, "direction", "forward");
+                string rotationStyle = GetOptionalString(animation, "rotationStyle", "full");
+
+                AnimationDirection directionEnum = direction switch {
+                    "forward" => AnimationDirection.Forward,
+                    "reverse" => AnimationDirection.Reverse,
+                    "ping-pong" => AnimationDirection.PingPong,
+                    "ping-pong-reverse" => AnimationDirection.PingPongReverse,
+                    _ => throw new Exception("Invalid enum \"" + direction + "\" for direction")
+                };
+
+                RotationStyle rotationStyleEnum = rotationStyle switch {
+                    "none" => RotationStyle.None,
+                    "full" => RotationStyle.Full,
+                    "45-degrees" => RotationStyle.Degrees45,
+                    "90-degrees" => RotationStyle.Degrees90,
+                    "180-degrees" => RotationStyle.Degrees180,
+                    "static-frames" => RotationStyle.StaticFrames,
+                    _ => throw new Exception("Invalid enum \"" + rotationStyle + "\" for rotationStyle")
+                };
 
                 Hatch.Sprite.Animation animEntry = new Hatch.Sprite.Animation(animationName);
                 animEntry.Speed = (ushort)speed;
                 animEntry.LoopFrame = loopFrame;
-                animEntry.RotationStyle = (RotationStyle)rotationStyle;
+                animEntry.Direction = directionEnum;
+                animEntry.RotationStyle = rotationStyleEnum;
                 sprite.AddAnimation(animEntry);
 
                 JsonElement? valFrames = GetOptionalElement(animation, "frames", JsonValueKind.Array);
@@ -319,13 +402,35 @@ namespace Hatch {
 
                     int x = (int)GetInteger(frame, "sheetX");
                     int y = (int)GetInteger(frame, "sheetY");
-                    short width = (short)GetInteger(frame, "width");
-                    short height = (short)GetInteger(frame, "height");
-                    short offsetX = (short)GetOptionalInteger(frame, "offsetX", 0);
-                    short offsetY = (short)GetOptionalInteger(frame, "offsetY", 0);
+                    int width = (int)GetInteger(frame, "width");
+                    int height = (int)GetInteger(frame, "height");
+                    int offsetX = (int)GetOptionalInteger(frame, "offsetX", 0);
+                    int offsetY = (int)GetOptionalInteger(frame, "offsetY", 0);
                     float duration = GetOptionalDecimal(frame, "duration", defaultFrameDuration);
-                    byte spritesheetIndex = (byte)GetOptionalInteger(frame, "spritesheetIndex", 0);
+                    int spritesheetIndex = (int)GetOptionalInteger(frame, "spritesheetIndex", 0);
                     int id = (int)GetOptionalInteger(frame, "id", 0);
+
+                    if (x < 0) {
+                        throw new Exception("Invalid frame X " + x);
+                    }
+                    if (y < 0) {
+                        throw new Exception("Invalid frame Y " + y);
+                    }
+                    if (width < 0) {
+                        throw new Exception("Invalid frame width " + width);
+                    }
+                    if (height < 0) {
+                        throw new Exception("Invalid frame height " + height);
+                    }
+                    if (duration < 1) {
+                        throw new Exception("Invalid frame duration " + duration);
+                    }
+                    if (spritesheetIndex < 0) {
+                        throw new Exception("Invalid sheet index " + spritesheetIndex);
+                    }
+                    else if (spritesheetIndex >= numSheets) {
+                        throw new Exception("Invalid sheet index " + spritesheetIndex + " (max is " + (numSheets - 1) + ")");
+                    }
 
                     Hatch.Sprite.Animation.Frame fr = animEntry.AddFrame(
                         x, y,
@@ -355,21 +460,6 @@ namespace Hatch {
                             fr.AddHitbox(hitboxName, left, top, right, bottom);
                         }
                     }
-                }
-            }
-
-            if (json.ContainsKey("spritesheets")) {
-                JsonElement spritesheets = (JsonElement)json["spritesheets"];
-                if (spritesheets.ValueKind != JsonValueKind.Array) {
-                    throw new Exception("Expected \"spritesheets\" to be array but was " + spritesheets.ValueKind + " instead");
-                }
-
-                for (int i = 0; i < spritesheets.GetArrayLength(); i++) {
-                    var sheetEntry = spritesheets[i];
-
-                    string sheetPath = GetString(sheetEntry, "path");
-
-                    sprite.SpritesheetNames.Add(sheetPath);
                 }
             }
 
@@ -454,7 +544,7 @@ namespace Hatch {
             [JsonInclude]
             [JsonPropertyName("loopFrame")]
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-            public byte LoopFrame = 0;
+            public int LoopFrame = 0;
 
             [JsonInclude]
             [JsonPropertyName("direction")]
@@ -511,7 +601,7 @@ namespace Hatch {
                 WriteStringRSDKv5(writer, Name);
                 writer.Write((ushort)Frames.Count);
                 writer.Write(GetSpeed());
-                writer.Write(LoopFrame);
+                writer.Write((byte)LoopFrame);
                 writer.Write((byte)RotationStyle);
 
                 for (ushort i = 0; i < Frames.Count; i++) {
