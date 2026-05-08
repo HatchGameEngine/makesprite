@@ -96,7 +96,7 @@ namespace makesprite {
             for (int f = 0; f < Frames.Count; f++) {
                 Frame frame = Frames[f];
 
-                GetHitboxFromFrame(frame, hitboxLayers);
+                frame.GetHitboxes(hitboxLayers);
 
                 for (int l = hitboxLayers.Count - 1; l >= 0; l--) {
                     frame.PixelData.RemoveAt(hitboxLayers[l]);
@@ -105,47 +105,6 @@ namespace makesprite {
 
             for (int l = hitboxLayers.Count - 1; l >= 0; l--) {
                 RemoveLayer(hitboxLayers[l]);
-            }
-        }
-
-        private void GetHitboxFromFrame(Frame frame, List<int> hitboxLayers) {
-            for (int l = 0; l < hitboxLayers.Count; l++) {
-                int layerIndex = hitboxLayers[l];
-
-                Hitbox hitbox = new Hitbox(HitboxNames[l], frame.Width, frame.Height, 0, 0);
-
-                for (int y = 0; y < frame.Height; y++) {
-                    for (int x = 0; x < frame.Width; x++) {
-                        int px = frame.SheetX + x;
-                        int py = frame.SheetY + y;
-
-                        uint value = frame.PixelData[layerIndex][px + (py * frame.PixelDataWidth)];
-                        if (ColorDepth == 8) {
-                            if (value == (uint)TransparentPaletteIndex) {
-                                continue;
-                            }
-                        }
-                        else if (ColorDepth == 16) {
-                            uint alpha = (value & 0xFF00) >> 8;
-                            if (alpha == 0) {
-                                continue;
-                            }
-                        }
-                        else {
-                            uint alpha = (value & 0xFF000000);
-                            if (alpha == 0) {
-                                continue;
-                            }
-                        }
-
-                        hitbox.X = Math.Min(hitbox.X, x);
-                        hitbox.Y = Math.Min(hitbox.Y, y);
-                        hitbox.Width = Math.Max(hitbox.Width, x + 1);
-                        hitbox.Height = Math.Max(hitbox.Height, y + 1);
-                    }
-                }
-
-                frame.Hitboxes.Add(hitbox);
             }
         }
 
@@ -274,8 +233,8 @@ namespace makesprite {
                 OwningSprite = owner;
             }
 
-            public Frame Copy() {
-                Frame copy = new Frame(OwningSprite, Width, Height);
+            public Frame Copy(Sprite owningSprite) {
+                Frame copy = new Frame(owningSprite, Width, Height);
                 copy.Duration = Duration;
                 copy.SheetX = SheetX;
                 copy.SheetY = SheetY;
@@ -292,6 +251,50 @@ namespace makesprite {
                 return copy;
             }
 
+            public void GetHitboxes(List<int> hitboxLayers) {
+                for (int l = 0; l < hitboxLayers.Count; l++) {
+                    int layerIndex = hitboxLayers[l];
+
+                    Hitbox hitbox = new Hitbox(OwningSprite.HitboxNames[l], Width, Height, 0, 0);
+
+                    for (int y = 0; y < Height; y++) {
+                        for (int x = 0; x < Width; x++) {
+                            int px = SheetX + x;
+                            int py = SheetY + y;
+                            if (px < 0 || px >= PixelDataWidth || py < 0 || py >= PixelDataHeight) {
+                                continue;
+                            }
+
+                            uint value = PixelData[layerIndex][px + (py * PixelDataWidth)];
+                            if (OwningSprite.ColorDepth == 8) {
+                                if (value == (uint)OwningSprite.TransparentPaletteIndex) {
+                                    continue;
+                                }
+                            }
+                            else if (OwningSprite.ColorDepth == 16) {
+                                uint alpha = (value & 0xFF00) >> 8;
+                                if (alpha == 0) {
+                                    continue;
+                                }
+                            }
+                            else {
+                                uint alpha = (value & 0xFF000000);
+                                if (alpha == 0) {
+                                    continue;
+                                }
+                            }
+
+                            hitbox.X = Math.Min(hitbox.X, x);
+                            hitbox.Y = Math.Min(hitbox.Y, y);
+                            hitbox.Width = Math.Max(hitbox.Width, x + 1);
+                            hitbox.Height = Math.Max(hitbox.Height, y + 1);
+                        }
+                    }
+
+                    Hitboxes.Add(hitbox);
+                }
+            }
+
             public bool IsEmptyOnLayer(int layerIndex) {
                 uint[] pixelData = PixelData[layerIndex];
 
@@ -304,6 +307,10 @@ namespace makesprite {
                         for (int x = 0; x < Width; x++) {
                             int px = SheetX + x;
                             int py = SheetY + y;
+                            if (px < 0 || px >= PixelDataWidth || py < 0 || py >= PixelDataHeight) {
+                                continue;
+                            }
+
                             uint index = pixelData[px + (py * PixelDataWidth)];
                             if (index == (uint)OwningSprite.TransparentPaletteIndex) {
                                 continue;
@@ -322,6 +329,10 @@ namespace makesprite {
                         for (int x = 0; x < Width; x++) {
                             int px = SheetX + x;
                             int py = SheetY + y;
+                            if (px < 0 || px >= PixelDataWidth || py < 0 || py >= PixelDataHeight) {
+                                continue;
+                            }
+
                             uint value = pixelData[px + (py * PixelDataWidth)];
                             uint alpha = (value & 0xFF00);
                             if (alpha != 0) {
@@ -335,6 +346,10 @@ namespace makesprite {
                         for (int x = 0; x < Width; x++) {
                             int px = SheetX + x;
                             int py = SheetY + y;
+                            if (px < 0 || px >= PixelDataWidth || py < 0 || py >= PixelDataHeight) {
+                                continue;
+                            }
+
                             uint argb = pixelData[px + (py * PixelDataWidth)];
                             uint alpha = (argb & 0xFF000000);
                             if (alpha != 0) {

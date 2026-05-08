@@ -404,6 +404,9 @@ namespace makesprite {
                     for (int x = 0; x < frame.Width; x++) {
                         int px = frame.SheetX + x;
                         int py = frame.SheetY + y;
+                        if (px < 0 || px >= frame.PixelDataWidth || py < 0 || py >= frame.PixelDataHeight) {
+                            continue;
+                        }
 
                         int p = px + (py * frame.PixelDataWidth);
                         uint argb = frame.PixelData[l][p];
@@ -441,6 +444,9 @@ namespace makesprite {
                     for (int x = 0; x < frame.Width; x++) {
                         int px = frame.SheetX + x;
                         int py = frame.SheetY + y;
+                        if (px < 0 || px >= frame.PixelDataWidth || py < 0 || py >= frame.PixelDataHeight) {
+                            continue;
+                        }
 
                         int p = px + (py * frame.PixelDataWidth);
                         uint value = frame.PixelData[l][p];
@@ -476,6 +482,9 @@ namespace makesprite {
                     for (int x = 0; x < frame.Width; x++) {
                         int px = frame.SheetX + x;
                         int py = frame.SheetY + y;
+                        if (px < 0 || px >= frame.PixelDataWidth || py < 0 || py >= frame.PixelDataHeight) {
+                            continue;
+                        }
 
                         int p = px + (py * frame.PixelDataWidth);
                         uint index = frame.PixelData[l][p];

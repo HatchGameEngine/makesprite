@@ -119,8 +119,8 @@ namespace Hatch {
                     Animation.Frame animFrame = anim.Frames[f];
 
                     makesprite.Sprite.Frame frame = new makesprite.Sprite.Frame(sprite, animFrame.Width, animFrame.Height);
-                    frame.SheetX = animFrame.X;
-                    frame.SheetY = animFrame.Y;
+                    frame.SheetX = animFrame.SheetX;
+                    frame.SheetY = animFrame.SheetY;
                     frame.Offsets = new Vector2(animFrame.OffsetX, animFrame.OffsetY);
                     frame.Duration = animFrame.Duration;
                     frame.ID = animFrame.ID;
@@ -317,8 +317,8 @@ namespace Hatch {
                 for (int f = 0; f < frames.GetArrayLength(); f++) {
                     var frame = frames[f];
 
-                    short x = (short)GetInteger(frame, "sheetX");
-                    short y = (short)GetInteger(frame, "sheetY");
+                    int x = (int)GetInteger(frame, "sheetX");
+                    int y = (int)GetInteger(frame, "sheetY");
                     short width = (short)GetInteger(frame, "width");
                     short height = (short)GetInteger(frame, "height");
                     short offsetX = (short)GetOptionalInteger(frame, "offsetX", 0);
@@ -523,11 +523,11 @@ namespace Hatch {
             public class Frame {
                 [JsonInclude]
                 [JsonPropertyName("sheetX")]
-                public ushort X;
+                public int SheetX;
 
                 [JsonInclude]
                 [JsonPropertyName("sheetY")]
-                public ushort Y;
+                public int SheetY;
 
                 [JsonInclude]
                 [JsonPropertyName("width")]
@@ -568,8 +568,8 @@ namespace Hatch {
 
                 public Frame(Animation anim, int x, int y, int width, int height, int offsetX, int offsetY, float duration, int sheet, int id) {
                     Animation = anim;
-                    X = (ushort)x;
-                    Y = (ushort)y;
+                    SheetX = x;
+                    SheetY = y;
                     Width = (ushort)width;
                     Height = (ushort)height;
                     OffsetX = (short)offsetX;
@@ -625,8 +625,8 @@ namespace Hatch {
                     writer.Write(SpritesheetIndex);
                     writer.Write((short)GetDurationInFrames());
                     writer.Write((ushort)ID);
-                    writer.Write(X);
-                    writer.Write(Y);
+                    writer.Write((ushort)SheetX);
+                    writer.Write((ushort)SheetY);
                     writer.Write(Width);
                     writer.Write(Height);
                     writer.Write(OffsetX);

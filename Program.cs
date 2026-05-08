@@ -234,7 +234,7 @@ namespace makesprite {
 
                     for (int f = 0; f < sprite.Frames.Count; f++) {
                         Sprite.Frame originalFrame = sprite.Frames[f];
-                        Sprite.Frame frame = originalFrame.Copy();
+                        Sprite.Frame frame = originalFrame.Copy(groupSprite);
 
                         for (int p = 0; p < groupSprite.Layers.Count; p++) {
                             frame.PixelData.Add(originalFrame.PixelData[l + 1 + p]);
