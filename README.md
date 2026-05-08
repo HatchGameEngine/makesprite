@@ -2,6 +2,8 @@
 
 makesprite is a tool that converts animated sprites into Hatch formats.
 
+Requires .NET 9.
+
 ## Supported formats
 
 ### Input formats
@@ -161,3 +163,13 @@ GIF images can be imported as a sprite. Each input GIF directly maps to its own 
 - Can only be indexed.
 - Can't define hitboxes.
 - Can't define loop frames.
+
+## Building
+
+### Windows
+
+Open the `makesprite.csproj` project in Visual Studio, and build it. Alternatively, run `dotnet build` or `dotnet publish`.
+
+### Linux
+
+Run `dotnet build` or `dotnet publish`.
