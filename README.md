@@ -2,7 +2,7 @@
 
 makesprite is a tool that converts animated sprites into Hatch formats.
 
-Requires .NET 9.
+Written in C# 11.0. Requires .NET 9.
 
 ## Supported formats
 
