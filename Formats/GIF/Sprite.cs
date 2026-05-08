@@ -46,7 +46,7 @@ namespace GIF {
             Layer layer = new Layer(this);
             Layers.Add(layer);
 
-            Sprite.AnimRange range = new Sprite.AnimRange(name, 0, Frames.Count - 1, 0);
+            Sprite.AnimRange range = new Sprite.AnimRange(name, 0, Frames.Count - 1);
             AnimRanges.Add(range);
 
             if (numPaletteColors == 0) {

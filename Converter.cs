@@ -838,6 +838,7 @@ namespace makesprite {
                 else {
                     animEntry = new Hatch.Sprite.Animation(rangeName);
                     animEntry.Direction = (Hatch.Sprite.AnimationDirection)range.Direction;
+                    animEntry.RotationStyle = (Hatch.Sprite.RotationStyle)range.RotationStyle;
 
                     if (isFont) {
                         animEntry.Speed = 0;

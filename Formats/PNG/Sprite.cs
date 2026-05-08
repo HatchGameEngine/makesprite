@@ -13,7 +13,7 @@ namespace PNG {
             fr.Duration = 1;
             Frames.Add(fr);
 
-            Sprite.AnimRange range = new Sprite.AnimRange(name, 0, 0, 0);
+            Sprite.AnimRange range = new Sprite.AnimRange(name, 0, 0);
             AnimRanges.Add(range);
 
             uint[] pixelData = file.GetPixelData(out ColorDepth);

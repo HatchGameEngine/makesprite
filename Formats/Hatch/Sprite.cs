@@ -152,13 +152,18 @@ namespace Hatch {
                         }
                     }
 
+                    if (f == anim.LoopFrame) {
+                        frame.IsLoopPoint = true;
+                    }
+
                     sprite.Frames.Add(frame);
                 }
 
                 makesprite.Sprite.AnimRange animRange = new makesprite.Sprite.AnimRange(
                     anim.Name,
                     numFrames, numFrames + (anim.Frames.Count - 1),
-                    makesprite.Sprite.AnimationDirection.Forward
+                    (makesprite.Sprite.AnimationDirection)anim.Direction,
+                    (makesprite.Sprite.RotationStyle)anim.RotationStyle
                 );
 
                 sprite.AnimRanges.Add(animRange);
@@ -602,7 +607,11 @@ namespace Hatch {
                 ushort frameCount = reader.ReadUInt16();
                 animation.Speed = reader.ReadUInt16();
                 animation.LoopFrame = reader.ReadByte();
-                animation.RotationStyle = (RotationStyle)reader.ReadByte();
+                byte rotationStyle = reader.ReadByte();
+                if (rotationStyle > 5) {
+                    throw new InvalidOperationException("Invalid rotation style " + rotationStyle);
+                }
+                animation.RotationStyle = (RotationStyle)rotationStyle;
 
                 for (ushort i = 0; i < frameCount; i++) {
                     animation.Frames.Add(Frame.ReadRSDKv5(sprite, animation, reader));
@@ -797,7 +806,11 @@ namespace Hatch {
             byte length = reader.ReadByte();
 
             for (int i = 0; i < length; i++) {
-                text += (char)reader.ReadByte();
+                char chr = (char)reader.ReadByte();
+                if (chr == 0) {
+                    break;
+                }
+                text += chr;
             }
 
             return text;

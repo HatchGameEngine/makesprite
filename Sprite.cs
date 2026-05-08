@@ -16,6 +16,15 @@ namespace makesprite {
             PingPongReverse
         }
 
+        public enum RotationStyle {
+            None,
+            Full,
+            Degrees45,
+            Degrees90,
+            Degrees180,
+            StaticFrames
+        }
+
         public Sprite Copy() {
             Sprite copy = new Sprite();
             copy.ColorDepth = ColorDepth;
@@ -131,12 +140,27 @@ namespace makesprite {
             public int Start;
             public int End;
             public AnimationDirection Direction;
+            public RotationStyle RotationStyle = RotationStyle.Full;
+
+            public AnimRange(string name, int start, int end) {
+                Name = name;
+                Start = start;
+                End = end;
+            }
 
             public AnimRange(string name, int start, int end, AnimationDirection direction) {
                 Name = name;
                 Start = start;
                 End = end;
                 Direction = direction;
+            }
+
+            public AnimRange(string name, int start, int end, AnimationDirection direction, RotationStyle rotationStyle) {
+                Name = name;
+                Start = start;
+                End = end;
+                Direction = direction;
+                RotationStyle = rotationStyle;
             }
         }
 
