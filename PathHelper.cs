@@ -1,6 +1,4 @@
-using System;
 using System.Globalization;
-using System.IO;
 
 public static class PathHelper {
     static CultureInfo cultureInfo = new CultureInfo("en-US");

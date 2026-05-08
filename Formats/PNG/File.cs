@@ -1,6 +1,5 @@
-using System.IO.Compression;
 using System.Drawing;
-using System.IO;
+using System.IO.Compression;
 
 // Code portions taken from the public domain library BigGustave
 namespace PNG {

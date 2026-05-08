@@ -1,6 +1,3 @@
-using System.IO;
-using System.IO.Compression;
-
 namespace makesprite {
     public class Sprite {
         public int ColorDepth;

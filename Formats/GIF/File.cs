@@ -1,4 +1,3 @@
-using System.IO;
 using System.Drawing;
 
 // Code portions taken from the public domain library gifdec

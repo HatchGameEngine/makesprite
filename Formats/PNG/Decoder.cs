@@ -1,5 +1,3 @@
-using System;
-
 // Code portions taken from the public domain library BigGustave
 namespace PNG {
     public static class Decoder {
