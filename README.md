@@ -40,7 +40,7 @@ Example usage:
 ```
 makesprite -i idle.gif walk.gif jump.gif -o player.bin
 makesprite -i player.ase --export-palette
-makesprite -i font.ase --sheet-path "fonts/" -f
+makesprite -i font.json --sheet-path "fonts/" --font
 ```
 
 ### Options
