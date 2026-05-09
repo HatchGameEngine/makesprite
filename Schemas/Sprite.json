@@ -41,7 +41,7 @@
             "type": "string"
           },
           "speed": {
-            "type": "integer"
+            "type": "number"
           },
           "loopFrame": {
             "type": "integer"

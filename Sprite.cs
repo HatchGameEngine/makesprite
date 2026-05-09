@@ -139,6 +139,7 @@ namespace makesprite {
             public string Name;
             public int Start;
             public int End;
+            public float Speed = 1.0F;
             public AnimationDirection Direction;
             public RotationStyle RotationStyle = RotationStyle.Full;
 
@@ -155,10 +156,11 @@ namespace makesprite {
                 Direction = direction;
             }
 
-            public AnimRange(string name, int start, int end, AnimationDirection direction, RotationStyle rotationStyle) {
+            public AnimRange(string name, int start, int end, float speed, AnimationDirection direction, RotationStyle rotationStyle) {
                 Name = name;
                 Start = start;
                 End = end;
+                Speed = speed;
                 Direction = direction;
                 RotationStyle = rotationStyle;
             }

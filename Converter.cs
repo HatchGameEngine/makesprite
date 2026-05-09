@@ -747,7 +747,7 @@ namespace makesprite {
                 if (sourceSprite.AnimRanges.Count == 0) {
                     Program.LogVerbose("Sprite " + filename + " has no ranges. Creating one.");
 
-                    Sprite.AnimRange range = new Sprite.AnimRange("Animation", 0, sourceSprite.Frames.Count - 1, 0);
+                    Sprite.AnimRange range = new Sprite.AnimRange("Animation", 0, sourceSprite.Frames.Count - 1);
                     sourceSprite.AnimRanges.Add(range);
                 }
 
@@ -837,6 +837,7 @@ namespace makesprite {
                 }
                 else {
                     animEntry = new Hatch.Sprite.Animation(rangeName);
+                    animEntry.Speed = range.Speed;
                     animEntry.Direction = (Hatch.Sprite.AnimationDirection)range.Direction;
                     animEntry.RotationStyle = (Hatch.Sprite.RotationStyle)range.RotationStyle;
 

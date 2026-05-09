@@ -162,6 +162,7 @@ namespace Hatch {
                 makesprite.Sprite.AnimRange animRange = new makesprite.Sprite.AnimRange(
                     anim.Name,
                     numFrames, numFrames + (anim.Frames.Count - 1),
+                    anim.Speed,
                     (makesprite.Sprite.AnimationDirection)anim.Direction,
                     (makesprite.Sprite.RotationStyle)anim.RotationStyle
                 );
@@ -179,8 +180,13 @@ namespace Hatch {
         public static JsonSerializerOptions GetSerializerOptions() {
             static void serializerModifier(JsonTypeInfo typeInfo) {
                 foreach (var property in typeInfo.Properties) {
-                    if (typeInfo.Type == typeof(Animation) && property.Name == "rotationStyle") {
-                        property.ShouldSerialize = static (obj, val) => (RotationStyle?)val != RotationStyle.Full;
+                    if (typeInfo.Type == typeof(Animation)) {
+                        if (property.Name == "speed") {
+                            property.ShouldSerialize = static (obj, val) => (float?)val != 1.0;
+                        }
+                        else if (property.Name == "rotationStyle") {
+                            property.ShouldSerialize = static (obj, val) => (RotationStyle?)val != RotationStyle.Full;
+                        }
                     }
                 }
             }
@@ -386,13 +392,11 @@ namespace Hatch {
                 throw Err("Expected \"animations\" to be array but was " + animations.ValueKind);
             }
 
-            float defaultFrameDuration = Animation.Frame.GetDurationInMilliseconds(1, BASE_FRAMERATE);
-
             for (int a = 0; a < animations.GetArrayLength(); a++) {
                 var animation = animations[a];
 
                 string animationName = GetString(animation, "name");
-                int speed = (int)GetOptionalInteger(animation, "speed", 1);
+                float speed = (float)GetOptionalDecimal(animation, "speed", 1.0F);
                 int loopFrame = (int)GetOptionalInteger(animation, "loopFrame", 0);
                 string direction = GetOptionalString(animation, "direction", "forward");
                 string rotationStyle = GetOptionalString(animation, "rotationStyle", "full");
@@ -416,7 +420,7 @@ namespace Hatch {
                 };
 
                 Hatch.Sprite.Animation animEntry = new Hatch.Sprite.Animation(animationName);
-                animEntry.Speed = (ushort)speed;
+                animEntry.Speed = speed;
                 animEntry.LoopFrame = loopFrame;
                 animEntry.Direction = directionEnum;
                 animEntry.RotationStyle = rotationStyleEnum;
@@ -432,7 +436,7 @@ namespace Hatch {
                     int height = (int)GetInteger(frame, "height");
                     int offsetX = (int)GetOptionalInteger(frame, "offsetX", 0);
                     int offsetY = (int)GetOptionalInteger(frame, "offsetY", 0);
-                    float duration = GetOptionalDecimal(frame, "duration", defaultFrameDuration);
+                    float duration = GetOptionalDecimal(frame, "duration", 100);
                     int sheetIndex = (int)GetOptionalInteger(frame, "sheetIndex", 0);
                     int id = (int)GetOptionalInteger(frame, "id", 0);
 
@@ -558,7 +562,7 @@ namespace Hatch {
             [JsonInclude]
             [JsonPropertyName("speed")]
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-            public ushort Speed = 0;
+            public float Speed = 1.0F;
 
             [JsonInclude]
             [JsonPropertyName("loopFrame")]
@@ -592,24 +596,20 @@ namespace Hatch {
                 return frame;
             }
 
-            public ushort GetSpeed() {
-                if (Speed == 0) {
-                    return 1;
-                }
-
-                return Speed;
-            }
-
             public static Animation ReadRSDKv5(Sprite sprite, BinaryReader reader) {
                 string name = ReadStringRSDKv5(reader);
 
                 Animation animation = new Animation(name);
                 ushort frameCount = reader.ReadUInt16();
-                animation.Speed = reader.ReadUInt16();
+                ushort speed = reader.ReadUInt16();
                 animation.LoopFrame = reader.ReadByte();
                 byte rotationStyle = reader.ReadByte();
                 if (rotationStyle > 5) {
                     throw new InvalidOperationException("Invalid rotation style " + rotationStyle);
+                }
+
+                if (speed >= 1) {
+                    animation.Speed = speed;
                 }
                 animation.RotationStyle = (RotationStyle)rotationStyle;
 
@@ -623,7 +623,7 @@ namespace Hatch {
             public void WriteRSDKv5(BinaryWriter writer) {
                 WriteStringRSDKv5(writer, Name);
                 writer.Write((ushort)Frames.Count);
-                writer.Write(GetSpeed());
+                writer.Write((ushort)Speed);
                 writer.Write((byte)LoopFrame);
                 writer.Write((byte)RotationStyle);
 

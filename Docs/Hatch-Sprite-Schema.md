@@ -8,21 +8,21 @@
   - `type`: A string. The type of the spritesheet file. Must be a media type (MIME type). Required.
 - `animations`: An array. Contains the animations. Required.
   - `name`: A string. The name of the animation. Required.
-  - `speed`: An integer. The speed. If omitted, assume this is `1`.
-  - `loopFrame`: An integer. The loop frame index. If omitted, assume this is `0`.
-  - `direction`: An enum. The animation direction. Must be one of the following: `"forward"`, `"reverse"`, `"ping-pong"`, `"ping-pong-reverse"`. If omitted, assume this is `"forward"`.
-  - `rotationStyle`: An enum. The rotation style. Must be one of the following: `"none"`, `"full"`, `"45-degrees"`, `"90-degrees"`, `"180-degrees"`, `"static-frames"`. If omitted, assume this is `"full"`.
-  - `frames`: An array. Contains the frames. Required.
+  - `speed`: A number. The speed of the animation. If omitted, assume this is `1.0`.
+  - `loopFrame`: An integer. The loop frame of the animation. If omitted, assume this is `0`.
+  - `direction`: An enum. The direction of the animation. Must be one of the following: `"forward"`, `"reverse"`, `"ping-pong"`, `"ping-pong-reverse"`. If omitted, assume this is `"forward"`.
+  - `rotationStyle`: An enum. The rotation style of the animation. Must be one of the following: `"none"`, `"full"`, `"45-degrees"`, `"90-degrees"`, `"180-degrees"`, `"static-frames"`. If omitted, assume this is `"full"`.
+  - `frames`: An array. Contains the frames of the animation. Required.
     - `sheetIndex`: An integer. The index of the spritesheet to use. If omitted, assume this is `0`.
     - `sheetX`: An integer. The X position in the spritesheet where the frame starts. Required.
     - `sheetY`: An integer. The Y position in the spritesheet where the frame starts. Required.
-    - `width`: An integer. The width. Required.
-    - `height`: An integer. The height. Required.
-    - `offsetX`: An integer. The horizontal offset. If omitted, assume this is `0`.
-    - `offsetY`: An integer. The vertical offset. If omitted, assume this is `0`.
-    - `duration`: A number. How long the frame lasts, in milliseconds. If omitted, assume this is 1000/60 ms.
+    - `width`: An integer. The width of the frame. Required.
+    - `height`: An integer. The height of the frame. Required.
+    - `offsetX`: An integer. The horizontal offset of the frame. If omitted, assume this is `0`.
+    - `offsetY`: An integer. The vertical offset of the frame. If omitted, assume this is `0`.
+    - `duration`: A number. How long the frame lasts in milliseconds. If omitted, assume this is 100 ms.
     - `id`: An integer. If omitted, assume this is `0`.
-    - `hitboxes`: An array. Contains the hitboxes. All fields in it are required.
+    - `hitboxes`: An array. Contains the hitboxes of the frame. All fields in it are required.
       - `name`: A string. The name of the hitbox.
       - `left`: An integer. The left side of the hitbox.
       - `top`: An integer. The top side of the hitbox.
