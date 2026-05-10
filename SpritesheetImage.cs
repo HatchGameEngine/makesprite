@@ -1,5 +1,3 @@
-using System.Drawing;
-
 namespace makesprite {
     public class SpritesheetImage {
         public int Width;

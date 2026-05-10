@@ -304,7 +304,7 @@ namespace makesprite {
                                 }
                             }
                             else {
-                                uint alpha = (value & 0xFF000000);
+                                uint alpha = value & 0xFF000000;
                                 if (alpha == 0) {
                                     continue;
                                 }
@@ -343,7 +343,7 @@ namespace makesprite {
                             }
 
                             uint argb = OwningSprite.Palette[index];
-                            uint alpha = (argb & 0xFF000000);
+                            uint alpha = argb & 0xFF000000;
                             if (alpha != 0) {
                                 return false;
                             }
@@ -360,7 +360,7 @@ namespace makesprite {
                             }
 
                             uint value = pixelData[px + (py * PixelDataWidth)];
-                            uint alpha = (value & 0xFF00);
+                            uint alpha = value & 0xFF00;
                             if (alpha != 0) {
                                 return false;
                             }
@@ -377,7 +377,7 @@ namespace makesprite {
                             }
 
                             uint argb = pixelData[px + (py * PixelDataWidth)];
-                            uint alpha = (argb & 0xFF000000);
+                            uint alpha = argb & 0xFF000000;
                             if (alpha != 0) {
                                 return false;
                             }

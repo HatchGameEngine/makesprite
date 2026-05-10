@@ -1,5 +1,3 @@
-using System.Drawing;
-
 namespace GIF {
     public class Sprite : makesprite.Sprite {
         private int Width;
@@ -56,11 +54,7 @@ namespace GIF {
             Palette = new uint[numPaletteColors];
 
             for (int p = 0; p < numPaletteColors; p++) {
-                byte r = paletteToUse[p].R;
-                byte g = paletteToUse[p].G;
-                byte b = paletteToUse[p].B;
-                byte a = paletteToUse[p].A;
-                Palette[p] = (uint)(a << 24 | b << 16 | g << 8 | r);
+                Palette[p] = paletteToUse[p].ToABGR();
             }
 
             // Because a spritesheet can only have a single palette, we verify
@@ -114,12 +108,7 @@ namespace GIF {
                 for (int p = 0; p < Width * Height; p++) {
                     uint colorIndex = fr.PixelData[0][p];
 
-                    byte r = framePalette[colorIndex].R;
-                    byte g = framePalette[colorIndex].G;
-                    byte b = framePalette[colorIndex].B;
-                    byte a = framePalette[colorIndex].A;
-
-                    fr.PixelData[0][p] = (uint)(a << 24 | b << 16 | g << 8 | r);
+                    fr.PixelData[0][p] = framePalette[colorIndex].ToABGR();
                 }
             }
         }

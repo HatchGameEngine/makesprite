@@ -1,4 +1,3 @@
-using System.Drawing;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -27,7 +26,7 @@ namespace makesprite {
             public List<Rectangle> frameCrops = new List<Rectangle>();
             public List<Vector2> frameSizes = new List<Vector2>();
             public List<Vector2> frameOffsets = new List<Vector2>();
-            public List<System.Drawing.Color[]> frameSheets = new List<System.Drawing.Color[]>();
+            public List<Color[]> frameSheets = new List<Color[]>();
 
             public int HitboxStartIndex = 0;
 
@@ -271,9 +270,9 @@ namespace makesprite {
 
                 // Initialize canvas
                 int canvasSize = frame.Width * frame.Height;
-                System.Drawing.Color[] frameCanvas = new System.Drawing.Color[canvasSize];
+                Color[] frameCanvas = new Color[canvasSize];
                 for (int p = 0; p < canvasSize; p++) {
-                    frameCanvas[p] = System.Drawing.Color.Transparent;
+                    frameCanvas[p] = Color.Transparent;
                 }
 
                 // Write pixels onto the frame's canvas
@@ -371,7 +370,7 @@ namespace makesprite {
             }
         }
 
-        private uint GetFrameHash(Sprite.Frame frame, System.Drawing.Color[] canvas, Rectangle crop, uint frameHash) {
+        private uint GetFrameHash(Sprite.Frame frame, Color[] canvas, Rectangle crop, uint frameHash) {
             if (crop.Width == 0 || crop.Height == 0) {
                 return frameHash;
             }
@@ -384,14 +383,14 @@ namespace makesprite {
                 // Width and Height in this respect are just X2 and Y2
                 if (px >= crop.X && py >= crop.Y &&
                     px <= crop.Width && py <= crop.Height) {
-                    frameHash = JenkinsHash((uint)canvas[p].ToArgb(), frameHash);
+                    frameHash = JenkinsHash((uint)canvas[p].ToABGR(), frameHash);
                 }
             }
 
             return frameHash;
         }
 
-        private void BuildFrame(ConversionInfo convert, Sprite.Frame frame, System.Drawing.Color[] canvas, Rectangle crop) {
+        private void BuildFrame(ConversionInfo convert, Sprite.Frame frame, Color[] canvas, Rectangle crop) {
             Sprite? sprite = convert.Input;
 
             for (int l = 0; l < frame.PixelData.Count; l++) {
@@ -410,17 +409,13 @@ namespace makesprite {
 
                         int p = px + (py * frame.PixelDataWidth);
                         uint argb = frame.PixelData[l][p];
-                        uint color = (argb & 0xFF000000);
-                        if (color == 0) {
+                        uint alpha = argb & 0xFF000000;
+                        if (alpha == 0) {
                             continue;
                         }
 
-                        color |= (argb & 0xFF0000) >> 16;
-                        color |= (argb & 0xFF00);
-                        color |= (argb & 0xFF) << 16;
-
                         p = x + (y * frame.Width);
-                        canvas[p] = System.Drawing.Color.FromArgb((int)color);
+                        canvas[p] = new Color(argb);
 
                         crop.X = Math.Min(crop.X, x);
                         crop.Y = Math.Min(crop.Y, y);
@@ -431,7 +426,7 @@ namespace makesprite {
             }
         }
 
-        private void BuildGrayscaleFrame(ConversionInfo convert, Sprite.Frame frame, System.Drawing.Color[] canvas, Rectangle crop) {
+        private void BuildGrayscaleFrame(ConversionInfo convert, Sprite.Frame frame, Color[] canvas, Rectangle crop) {
             Sprite? sprite = convert.Input;
 
             for (int l = 0; l < frame.PixelData.Count; l++) {
@@ -458,7 +453,7 @@ namespace makesprite {
                         value &= 0xFF;
 
                         p = x + (y * frame.Width);
-                        canvas[p] = System.Drawing.Color.FromArgb((int)alpha, (int)value, (int)value, (int)value);
+                        canvas[p] = new Color((byte)value, (byte)alpha);
 
                         crop.X = Math.Min(crop.X,px);
                         crop.Y = Math.Min(crop.Y, y);
@@ -469,7 +464,7 @@ namespace makesprite {
             }
         }
 
-        private void BuildIndexedFrame(ConversionInfo convert, Sprite.Frame frame, System.Drawing.Color[] canvas, Rectangle crop) {
+        private void BuildIndexedFrame(ConversionInfo convert, Sprite.Frame frame, Color[] canvas, Rectangle crop) {
             Sprite? sprite = convert.Input;
 
             for (int l = 0; l < frame.PixelData.Count; l++) {
@@ -493,7 +488,7 @@ namespace makesprite {
                         }
 
                         p = x + (y * frame.Width);
-                        canvas[p] = System.Drawing.Color.FromArgb((int)index, 0, 0);
+                        canvas[p] = new Color((byte)(index & 0xFF));
 
                         crop.X = Math.Min(crop.X, x);
                         crop.Y = Math.Min(crop.Y, y);
@@ -508,12 +503,7 @@ namespace makesprite {
             Color[] palette = new Color[srcPalette.Length];
 
             for (int i = 0; i < palette.Length; i++) {
-                uint argb = srcPalette[i];
-                int alpha = (int)((argb & 0xFF000000) >> 24);
-                int blue = (int)((argb & 0xFF0000) >> 16);
-                int green = (int)((argb & 0xFF00) >> 8);
-                int red = (int)(argb & 0xFF);
-                palette[i] = System.Drawing.Color.FromArgb(alpha, red, green, blue);
+                palette[i] = new Color(srcPalette[i]);
             }
 
             return palette;
@@ -575,8 +565,8 @@ namespace makesprite {
 
                     if (All8Bpp) {
                         for (int p = 0; p < canvasSize; p++) {
-                            System.Drawing.Color c = convert.frameSheets[i][p];
-                            if (c.A == 0) {
+                            Color c = convert.frameSheets[i][p];
+                            if (c.Alpha == 0) {
                                 continue;
                             }
 
@@ -589,13 +579,13 @@ namespace makesprite {
                             px += boxx.Rect.X;
                             py += boxx.Rect.Y;
 
-                            bytes[(py * stride) + px] = c.R;
+                            bytes[(py * stride) + px] = c.Red;
                         }
                     }
                     else if (sprite.ColorDepth == 8 && sprite.Palette != null) {
                         for (int p = 0; p < canvasSize; p++) {
-                            System.Drawing.Color c = convert.frameSheets[i][p];
-                            if (c.A == 0) {
+                            Color c = convert.frameSheets[i][p];
+                            if (c.Alpha == 0) {
                                 continue;
                             }
 
@@ -608,7 +598,7 @@ namespace makesprite {
                             px += boxx.Rect.X;
                             py += boxx.Rect.Y;
 
-                            uint argb = sprite.Palette[c.R];
+                            uint argb = sprite.Palette[c.Red];
                             long index = (py * stride) + (px * bytesPerPixel);
                             bytes[index + 0] = (byte)(argb & 0xFF);
                             bytes[index + 1] = (byte)((argb & 0xFF00) >> 8);
@@ -618,8 +608,8 @@ namespace makesprite {
                     }
                     else {
                         for (int p = 0; p < canvasSize; p++) {
-                            System.Drawing.Color c = convert.frameSheets[i][p];
-                            if (c.A == 0) {
+                            Color c = convert.frameSheets[i][p];
+                            if (c.Alpha == 0) {
                                 continue;
                             }
 
@@ -633,10 +623,10 @@ namespace makesprite {
                             py += boxx.Rect.Y;
 
                             long index = (py * stride) + (px * bytesPerPixel);
-                            bytes[index + 0] = c.R;
-                            bytes[index + 1] = c.G;
-                            bytes[index + 2] = c.B;
-                            bytes[index + 3] = c.A;
+                            bytes[index + 0] = c.Red;
+                            bytes[index + 1] = c.Green;
+                            bytes[index + 2] = c.Blue;
+                            bytes[index + 3] = c.Alpha;
                         }
                     }
 

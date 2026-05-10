@@ -1,5 +1,3 @@
-using System.Drawing;
-
 namespace Hatch {
     public class Palette {
         private const int MAX_ROWS = 16;
@@ -22,9 +20,9 @@ namespace Hatch {
                 // There may be less colors in the palette than there will be in the file.
                 // So some additional #FF00FF colors may be written.
                 if (i < colors.Length) {
-                    red = (byte)colors[i].R;
-                    green = (byte)colors[i].G;
-                    blue = (byte)colors[i].B;
+                    red = (byte)colors[i].Red;
+                    green = (byte)colors[i].Green;
+                    blue = (byte)colors[i].Blue;
                 }
                 else {
                     red = (byte)0xFF;

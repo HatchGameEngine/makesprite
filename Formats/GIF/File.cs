@@ -1,5 +1,3 @@
-using System.Drawing;
-
 // Code portions taken from the public domain library gifdec
 namespace GIF {
     public class Frame {
@@ -77,13 +75,13 @@ namespace GIF {
             Palette = new Color[256];
 
             for (int p = 0; p < NumPaletteColors; p++) {
-                int red = reader.ReadByte();
-                int green = reader.ReadByte();
-                int blue = reader.ReadByte();
-                int alpha = p == TransparentPaletteIndex ? 0 : 0xFF;
+                byte red = reader.ReadByte();
+                byte green = reader.ReadByte();
+                byte blue = reader.ReadByte();
+                byte alpha = p == TransparentPaletteIndex ? (byte)0 : (byte)0xFF;
 
                 // Store color
-                Palette[p] = System.Drawing.Color.FromArgb(alpha, red, green, blue);
+                Palette[p] = new Color(red, green, blue, alpha);
             }
 
             int widthMinusOne = Width - 1;
@@ -172,13 +170,13 @@ namespace GIF {
 
                         // Load all colors
                         for (int p = 0; p < size; p++) {
-                            int red = reader.ReadByte();
-                            int green = reader.ReadByte();
-                            int blue = reader.ReadByte();
-                            int alpha = p == TransparentPaletteIndex ? 0 : 0xFF;
+                            byte red = reader.ReadByte();
+                            byte green = reader.ReadByte();
+                            byte blue = reader.ReadByte();
+                            byte alpha = p == TransparentPaletteIndex ? (byte)0 : (byte)0xFF;
 
                             // Store color
-                            framePalette[p] = System.Drawing.Color.FromArgb(alpha, red, green, blue);
+                            framePalette[p] = new Color(red, green, blue, alpha);
                         }
                     }
 

@@ -1,5 +1,3 @@
-using System.Drawing;
-
 namespace makesprite {
     public class ImageFile {
         public int Width;
@@ -54,7 +52,7 @@ namespace makesprite {
             return Palette;
         }
 
-        public virtual uint[]? GetFramePaletteARGB(int frameIndex) {
+        public virtual uint[]? GetFramePaletteABGR(int frameIndex) {
             Color[]? colors = GetFramePalette(frameIndex);
             if (colors == null) {
                 return null;
@@ -62,11 +60,7 @@ namespace makesprite {
 
             uint[] palette = new uint[colors.Length];
             for (int p = 0; p < colors.Length; p++) {
-                byte r = colors[p].R;
-                byte g = colors[p].G;
-                byte b = colors[p].B;
-                byte a = colors[p].A;
-                palette[p] = (uint)(a << 24 | b << 16 | g << 8 | r);
+                palette[p] = colors[p].ToABGR();
             }
 
             return palette;

@@ -1,4 +1,3 @@
-using System.Drawing;
 using System.IO.Compression;
 
 // Code portions taken from the public domain library BigGustave
@@ -55,11 +54,11 @@ namespace PNG {
             TransparentPaletteIndex = -1;
 
             for (int i = 0; i < palette.Length; i++) {
-                PaletteData[(i * 3) + 0] = palette[i].R;
-                PaletteData[(i * 3) + 1] = palette[i].G;
-                PaletteData[(i * 3) + 2] = palette[i].B;
+                PaletteData[(i * 3) + 0] = palette[i].Red;
+                PaletteData[(i * 3) + 1] = palette[i].Green;
+                PaletteData[(i * 3) + 2] = palette[i].Blue;
 
-                if (palette[i].A != 0xFF) {
+                if (palette[i].Alpha != 0xFF) {
                     hasTransparency = true;
                 }
             }
@@ -68,7 +67,7 @@ namespace PNG {
                 TransparencyData = new byte[palette.Length];
 
                 for (int i = 0; i < palette.Length; i++) {
-                    byte alpha = palette[i].A;
+                    byte alpha = palette[i].Alpha;
                     if (alpha == 0 && TransparentPaletteIndex == -1) {
                         TransparentPaletteIndex = i;
                     }
@@ -424,17 +423,17 @@ namespace PNG {
                     a = TransparencyData[p];
                 }
 
-                palette[p] = System.Drawing.Color.FromArgb((int)a, (int)r, (int)g, (int)b);
+                palette[p] = new Color(r, g, b, a);
             }
 
             return palette;
         }
 
-        public override uint[]? GetFramePaletteARGB(int frameIndex) {
-            return GetPaletteDataARGB();
+        public override uint[]? GetFramePaletteABGR(int frameIndex) {
+            return GetPaletteDataABGR();
         }
 
-        public uint[]? GetPaletteDataARGB() {
+        public uint[]? GetPaletteDataABGR() {
             if (PaletteData == null) {
                 return null;
             }

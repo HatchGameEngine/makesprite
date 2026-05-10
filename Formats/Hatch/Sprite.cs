@@ -93,7 +93,7 @@ namespace Hatch {
                         sheetImages.Add(imageFile);
 
                         if (i == 0) {
-                            sprite.Palette = imageFile.GetFramePaletteARGB(0);
+                            sprite.Palette = imageFile.GetFramePaletteABGR(0);
                             sprite.TransparentPaletteIndex = imageFile.TransparentPaletteIndex;
                         }
 

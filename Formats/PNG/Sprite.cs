@@ -1,5 +1,3 @@
-using System.Drawing;
-
 namespace PNG {
     public class Sprite : makesprite.Sprite {
         public Sprite(File file, string name) {
@@ -22,7 +20,7 @@ namespace PNG {
             fr.PixelData.Add(pixelData);
 
             if (file.PaletteData != null) {
-                Palette = file.GetPaletteDataARGB();
+                Palette = file.GetPaletteDataABGR();
             }
         }
     }
